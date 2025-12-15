@@ -1,0 +1,60 @@
+{
+  "name": "logintelligence",
+  "version": "1.0.0",
+  "description": "Real-time error intelligence dashboard with AI-powered classification and pattern detection using Gemini",
+  "type": "module",
+  "main": "server/index.js",
+  "bin": {
+    "logintelligence": "./bin/logintelligence.js"
+  },
+  "scripts": {
+    "dev": "concurrently \"yarn server:dev\" \"yarn client:dev\"",
+    "server:dev": "NODE_ENV=development node --watch server/index.js",
+    "client:dev": "cd client && yarn dev",
+    "server": "node server/index.js",
+    "build": "cd client && yarn build",
+    "simulate": "node scripts/simulate-errors.js",
+    "setup": "yarn install && cd client && yarn install && cd .. && node scripts/setup-db.js",
+    "prepublishOnly": "cd client && yarn install && yarn build",
+    "postinstall": "node -e \"try{require('fs').mkdirSync('data',{recursive:true})}catch(e){}\""
+  },
+  "keywords": [
+    "error-tracking",
+    "ai",
+    "real-time",
+    "dashboard",
+    "monitoring",
+    "gemini",
+    "error-intelligence",
+    "error-analysis",
+    "log-analysis",
+    "observability",
+    "gemini-ai"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/logintelligence.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/logintelligence/issues"
+  },
+  "homepage": "https://github.com/yourusername/logintelligence#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "better-sqlite3": "^11.7.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "open": "^11.0.0",
+    "socket.io": "^4.8.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

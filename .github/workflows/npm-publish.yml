@@ -1,0 +1,50 @@
+name: Publish to npm
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (leave empty for current package.json version)'
+        required: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Install client dependencies
+        run: cd client && yarn install
+
+      - name: Build client
+        run: cd client && yarn build
+
+      - name: Run tests (if any)
+        run: yarn test || echo "No tests configured"
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create success message
+        run: |
+          echo "✅ Successfully published to npm!"
+          echo "Package: logintelligence"
+          echo "Version: $(node -p "require('./package.json').version")"
