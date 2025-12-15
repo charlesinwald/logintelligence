@@ -11,8 +11,77 @@ const __dirname = dirname(__filename);
 
 const DB_PATH = process.env.DB_PATH || './data/errors.db';
 
+// Type definitions
+export interface ErrorData {
+  message: string;
+  stack_trace?: string | null;
+  timestamp: number;
+  source: string;
+  severity?: 'critical' | 'high' | 'medium' | 'low' | 'unknown';
+  environment?: string | null;
+  user_id?: string | null;
+  request_id?: string | null;
+  metadata?: Record<string, any> | null;
+  ai_category?: string | null;
+}
+
+export interface ErrorRecord extends ErrorData {
+  id: number;
+  ai_severity?: string | null;
+  ai_hypothesis?: string | null;
+  ai_processed_at?: number | null;
+  created_at: number;
+}
+
+export interface AIData {
+  category: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  hypothesis: string;
+}
+
+export interface CategoryStat {
+  category: string | null;
+  count: number;
+  last_occurrence: number;
+}
+
+export interface ErrorPattern {
+  id: number;
+  pattern_hash: string;
+  category: string | null;
+  message_template: string | null;
+  first_seen: number;
+  last_seen: number;
+  occurrence_count: number;
+  severity: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface ErrorStat {
+  id: number;
+  time_bucket: number;
+  source: string;
+  category: string | null;
+  error_count: number;
+  created_at: number;
+}
+
+export interface StatsRow {
+  time_bucket: number;
+  source: string;
+  category: string | null;
+  total_errors: number;
+}
+
+export interface HourlyAverage {
+  source: string;
+  category: string | null;
+  avg_errors: number;
+}
+
 // Initialize database
-export const db = new Database(DB_PATH);
+export const db: Database.Database = new Database(DB_PATH);
 db.pragma('journal_mode = WAL'); // Better concurrency
 
 // Initialize schema
@@ -24,41 +93,52 @@ console.log('✓ Database initialized at:', DB_PATH);
 // Prepared statements for common operations
 export const statements = {
   // Insert new error
-  insertError: db.prepare(`
+  insertError: db.prepare<[string, string | null, number, string, string, string | null, string | null, string | null, string | null]>(
+    `
     INSERT INTO errors (
       message, stack_trace, timestamp, source, severity,
       environment, user_id, request_id, metadata
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `),
+  `
+  ),
 
   // Update error with AI analysis
-  updateErrorAI: db.prepare(`
+  updateErrorAI: db.prepare<[string | null, string | null, string | null, number, number]>(
+    `
     UPDATE errors
     SET ai_category = ?, ai_severity = ?, ai_hypothesis = ?, ai_processed_at = ?
     WHERE id = ?
-  `),
+  `
+  ),
 
   // Get recent errors
-  getRecentErrors: db.prepare(`
+  getRecentErrors: db.prepare<[number]>(
+    `
     SELECT * FROM errors
     ORDER BY timestamp DESC
     LIMIT ?
-  `),
+  `
+  ),
 
   // Get errors in time range
-  getErrorsInRange: db.prepare(`
+  getErrorsInRange: db.prepare<[number, number]>(
+    `
     SELECT * FROM errors
     WHERE timestamp >= ? AND timestamp <= ?
     ORDER BY timestamp DESC
-  `),
+  `
+  ),
 
   // Get error by ID
-  getErrorById: db.prepare(`
+  getErrorById: db.prepare<[number]>(
+    `
     SELECT * FROM errors WHERE id = ?
-  `),
+  `
+  ),
 
   // Error counts by category (time windowed)
-  getCategoryCounts: db.prepare(`
+  getCategoryCounts: db.prepare<[number]>(
+    `
     SELECT
       ai_category as category,
       COUNT(*) as count,
@@ -67,10 +147,12 @@ export const statements = {
     WHERE timestamp >= ?
     GROUP BY ai_category
     ORDER BY count DESC
-  `),
+  `
+  ),
 
   // Insert or update error pattern
-  upsertPattern: db.prepare(`
+  upsertPattern: db.prepare<[string, string | null, string, number, number, string | null]>(
+    `
     INSERT INTO error_patterns (pattern_hash, category, message_template, first_seen, last_seen, occurrence_count, severity)
     VALUES (?, ?, ?, ?, ?, 1, ?)
     ON CONFLICT(pattern_hash) DO UPDATE SET
@@ -78,23 +160,29 @@ export const statements = {
       occurrence_count = occurrence_count + 1,
       category = excluded.category,
       severity = excluded.severity
-  `),
+  `
+  ),
 
   // Get pattern by hash
-  getPattern: db.prepare(`
+  getPattern: db.prepare<[string]>(
+    `
     SELECT * FROM error_patterns WHERE pattern_hash = ?
-  `),
+  `
+  ),
 
   // Insert/update stats bucket
-  upsertStats: db.prepare(`
+  upsertStats: db.prepare<[number, string, string | null]>(
+    `
     INSERT INTO error_stats (time_bucket, source, category, error_count)
     VALUES (?, ?, ?, 1)
     ON CONFLICT(time_bucket, source, category) DO UPDATE SET
       error_count = error_count + 1
-  `),
+  `
+  ),
 
   // Get stats for spike detection
-  getStatsInRange: db.prepare(`
+  getStatsInRange: db.prepare<[number, number]>(
+    `
     SELECT
       time_bucket,
       source,
@@ -104,10 +192,12 @@ export const statements = {
     WHERE time_bucket >= ? AND time_bucket <= ?
     GROUP BY time_bucket, source, category
     ORDER BY time_bucket DESC
-  `),
+  `
+  ),
 
   // Get hourly average for spike detection
-  getHourlyAverage: db.prepare(`
+  getHourlyAverage: db.prepare<[number]>(
+    `
     SELECT
       source,
       category,
@@ -115,11 +205,12 @@ export const statements = {
     FROM error_stats
     WHERE time_bucket >= ?
     GROUP BY source, category
-  `)
+  `
+  )
 };
 
 // Utility functions
-export function insertError(errorData) {
+export function insertError(errorData: ErrorData): number {
   const result = statements.insertError.run(
     errorData.message,
     errorData.stack_trace || null,
@@ -140,10 +231,10 @@ export function insertError(errorData) {
     errorData.ai_category || 'uncategorized'
   );
 
-  return result.lastInsertRowid;
+  return Number(result.lastInsertRowid);
 }
 
-export function updateErrorWithAI(errorId, aiData) {
+export function updateErrorWithAI(errorId: number, aiData: AIData): Database.RunResult {
   return statements.updateErrorAI.run(
     aiData.category,
     aiData.severity,
@@ -153,17 +244,18 @@ export function updateErrorWithAI(errorId, aiData) {
   );
 }
 
-export function getRecentErrors(limit = 100) {
-  return statements.getRecentErrors.all(limit);
+export function getRecentErrors(limit: number = 100): ErrorRecord[] {
+  return statements.getRecentErrors.all(limit) as ErrorRecord[];
 }
 
-export function getCategoryStats(timeWindowMs = 3600000) { // Default: 1 hour
+export function getCategoryStats(timeWindowMs: number = 3600000): CategoryStat[] {
   const startTime = Date.now() - timeWindowMs;
-  return statements.getCategoryCounts.all(startTime);
+  return statements.getCategoryCounts.all(startTime) as CategoryStat[];
 }
 
-export function getErrorsInTimeRange(startTime, endTime) {
-  return statements.getErrorsInRange.all(startTime, endTime);
+export function getErrorsInTimeRange(startTime: number, endTime: number): ErrorRecord[] {
+  return statements.getErrorsInRange.all(startTime, endTime) as ErrorRecord[];
 }
 
 export default db;
+

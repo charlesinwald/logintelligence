@@ -7,7 +7,14 @@
 const API_URL = process.env.API_URL || 'http://localhost:3000';
 
 // Sample error templates
-const ERROR_TEMPLATES = [
+interface ErrorTemplate {
+  type: string;
+  messages: string[];
+  stacks: string[];
+  severity: string[];
+}
+
+const ERROR_TEMPLATES: ErrorTemplate[] = [
   {
     type: 'database',
     messages: [
@@ -121,10 +128,27 @@ const SERVICES = [
 
 const ENVIRONMENTS = ['production', 'staging', 'development'];
 
+interface ErrorData {
+  message: string;
+  stack_trace: string;
+  timestamp: number;
+  source: string;
+  severity: string;
+  environment: string;
+  user_id: string;
+  request_id: string;
+  metadata: {
+    url: string;
+    method: string;
+    ip: string;
+    userAgent: string;
+  };
+}
+
 /**
  * Generate a random error
  */
-function generateError() {
+function generateError(): ErrorData {
   const template = ERROR_TEMPLATES[Math.floor(Math.random() * ERROR_TEMPLATES.length)];
   const message = template.messages[Math.floor(Math.random() * template.messages.length)];
   const stack = template.stacks[Math.floor(Math.random() * template.stacks.length)];
@@ -151,7 +175,7 @@ function generateError() {
 /**
  * Send error to API
  */
-async function sendError(error) {
+async function sendError(error: ErrorData): Promise<void> {
   try {
     const response = await fetch(`${API_URL}/api/errors`, {
       method: 'POST',
@@ -168,14 +192,14 @@ async function sendError(error) {
       console.log(`✓ Error sent: ${error.message.substring(0, 60)}... (ID: ${data.errors[0].id})`);
     }
   } catch (error) {
-    console.error('Failed to send error:', error.message);
+    console.error('Failed to send error:', (error as Error).message);
   }
 }
 
 /**
  * Send batch of errors
  */
-async function sendBatch(count) {
+async function sendBatch(count: number): Promise<void> {
   const errors = Array.from({ length: count }, () => generateError());
 
   try {
@@ -194,14 +218,14 @@ async function sendBatch(count) {
       console.log(`✓ Batch sent: ${count} errors`);
     }
   } catch (error) {
-    console.error('Failed to send batch:', error.message);
+    console.error('Failed to send batch:', (error as Error).message);
   }
 }
 
 /**
  * Simulate normal error rate
  */
-async function simulateNormalRate(durationMs = 60000) {
+async function simulateNormalRate(durationMs: number = 60000): Promise<void> {
   console.log(`\n📊 Simulating normal error rate for ${durationMs / 1000} seconds...`);
   const startTime = Date.now();
 
@@ -217,7 +241,7 @@ async function simulateNormalRate(durationMs = 60000) {
 /**
  * Simulate error spike
  */
-async function simulateSpike(count = 20) {
+async function simulateSpike(count: number = 20): Promise<void> {
   console.log(`\n🚨 Simulating error spike (${count} errors)...`);
 
   // Send errors rapidly to trigger spike detection
@@ -232,7 +256,7 @@ async function simulateSpike(count = 20) {
 /**
  * Simulate specific error pattern (repeated errors)
  */
-async function simulatePattern(count = 10) {
+async function simulatePattern(count: number = 10): Promise<void> {
   console.log(`\n🔁 Simulating error pattern (${count} similar errors)...`);
 
   const baseError = generateError();
@@ -252,14 +276,14 @@ async function simulatePattern(count = 10) {
 /**
  * Sleep utility
  */
-function sleep(ms) {
+function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
  * Main simulation runner
  */
-async function main() {
+async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const mode = args[0] || 'demo';
 
@@ -329,3 +353,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 
 export { generateError, sendError, sendBatch };
+

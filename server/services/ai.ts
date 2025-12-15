@@ -1,17 +1,21 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
+import type { ErrorData, AIData } from '../db/index.js';
 
 dotenv.config();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 /**
  * Analyzes an error using Gemini AI and streams the response
- * @param {Object} error - Error object with message, stack_trace, source
- * @param {Function} onChunk - Callback for each chunk of streaming response
- * @returns {Promise<Object>} Parsed AI analysis
+ * @param error - Error object with message, stack_trace, source
+ * @param onChunk - Callback for each chunk of streaming response
+ * @returns Parsed AI analysis
  */
-export async function analyzeErrorStreaming(error, onChunk) {
+export async function analyzeErrorStreaming(
+  error: ErrorData,
+  onChunk?: (chunk: string) => void
+): Promise<AIData> {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
   const prompt = `You are an expert error analysis system. Analyze the following application error and provide a structured response.
@@ -61,7 +65,7 @@ Be concise and technical. Focus on actionable insights.`;
 /**
  * Non-streaming version for batch processing
  */
-export async function analyzeError(error) {
+export async function analyzeError(error: ErrorData): Promise<AIData> {
   const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
   const prompt = `You are an expert error analysis system. Analyze the following application error and provide a structured response.
@@ -100,10 +104,10 @@ Be concise and technical. Focus on actionable insights.`;
 /**
  * Parse AI response into structured format
  */
-function parseAIResponse(text) {
+function parseAIResponse(text: string): AIData {
   const lines = text.split('\n').map(line => line.trim()).filter(line => line);
 
-  const analysis = {
+  const analysis: AIData = {
     category: 'Unknown',
     severity: 'medium',
     hypothesis: 'Unable to analyze error'
@@ -115,7 +119,7 @@ function parseAIResponse(text) {
     } else if (line.toUpperCase().startsWith('SEVERITY:')) {
       const severity = line.substring(line.indexOf(':') + 1).trim().toLowerCase();
       if (['critical', 'high', 'medium', 'low'].includes(severity)) {
-        analysis.severity = severity;
+        analysis.severity = severity as 'critical' | 'high' | 'medium' | 'low';
       }
     } else if (line.toUpperCase().startsWith('HYPOTHESIS:')) {
       analysis.hypothesis = line.substring(line.indexOf(':') + 1).trim();
@@ -125,10 +129,17 @@ function parseAIResponse(text) {
   return analysis;
 }
 
+export interface BatchAnalysisResult {
+  errorId: number;
+  success: boolean;
+  analysis: AIData | null;
+  error: string | null;
+}
+
 /**
  * Batch analyze multiple errors
  */
-export async function analyzeErrorBatch(errors) {
+export async function analyzeErrorBatch(errors: Array<ErrorData & { id: number }>): Promise<BatchAnalysisResult[]> {
   const results = await Promise.allSettled(
     errors.map(error => analyzeError(error))
   );
@@ -137,7 +148,7 @@ export async function analyzeErrorBatch(errors) {
     errorId: errors[index].id,
     success: result.status === 'fulfilled',
     analysis: result.status === 'fulfilled' ? result.value : null,
-    error: result.status === 'rejected' ? result.reason.message : null
+    error: result.status === 'rejected' ? (result.reason as Error).message : null
   }));
 }
 
@@ -146,3 +157,4 @@ export default {
   analyzeErrorStreaming,
   analyzeErrorBatch
 };
+

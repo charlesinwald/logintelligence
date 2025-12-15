@@ -1,11 +1,11 @@
-import { statements } from '../db/index.js';
+import { statements, type ErrorData, type ErrorRecord, type StatsRow, type HourlyAverage } from '../db/index.js';
 import crypto from 'crypto';
 
 /**
  * Generate a hash for error pattern matching
  * Uses message and first few lines of stack trace for similarity
  */
-export function generateErrorHash(error) {
+export function generateErrorHash(error: ErrorData): string {
   // Normalize error message (remove numbers, IDs, timestamps)
   const normalizedMessage = error.message
     .replace(/\d+/g, 'N') // Replace numbers with N
@@ -28,7 +28,7 @@ export function generateErrorHash(error) {
 /**
  * Track error pattern and update occurrence count
  */
-export function trackErrorPattern(error, aiCategory) {
+export function trackErrorPattern(error: ErrorData, aiCategory: string | null): string {
   const patternHash = generateErrorHash(error);
   const now = Date.now();
 
@@ -44,21 +44,45 @@ export function trackErrorPattern(error, aiCategory) {
   return patternHash;
 }
 
+export interface SpikeDetection {
+  spike: boolean;
+  currentRate: number;
+  averageRate: number;
+  threshold: number;
+  multiplier: string;
+  source: string;
+  category: string | null;
+  message: string;
+}
+
 /**
  * Detect spikes in error rates
  * Returns alerts if current rate exceeds baseline by threshold
  */
-export function detectSpikes(source, category, thresholdMultiplier = 2.0) {
+export function detectSpikes(
+  source: string,
+  category: string | null,
+  thresholdMultiplier: number = 2.0
+): SpikeDetection {
   const now = Date.now();
   const currentBucket = Math.floor(now / 1000 / 300); // Current 5-min bucket
 
   // Get last 12 buckets (1 hour)
   const hourAgo = currentBucket - 12;
 
-  const stats = statements.getStatsInRange.all(hourAgo, currentBucket);
+  const stats = statements.getStatsInRange.all(hourAgo, currentBucket) as StatsRow[];
 
   if (stats.length === 0) {
-    return { spike: false, message: 'Insufficient data' };
+    return {
+      spike: false,
+      currentRate: 0,
+      averageRate: 0,
+      threshold: 0,
+      multiplier: '0',
+      source,
+      category,
+      message: 'Insufficient data'
+    };
   }
 
   // Calculate hourly average (exclude current bucket)
@@ -78,7 +102,7 @@ export function detectSpikes(source, category, thresholdMultiplier = 2.0) {
     currentRate: currentErrors,
     averageRate: Math.round(avgErrorsPerBucket * 10) / 10,
     threshold: Math.round(avgErrorsPerBucket * thresholdMultiplier * 10) / 10,
-    multiplier: avgErrorsPerBucket > 0 ? (currentErrors / avgErrorsPerBucket).toFixed(2) : 0,
+    multiplier: avgErrorsPerBucket > 0 ? (currentErrors / avgErrorsPerBucket).toFixed(2) : '0',
     source,
     category,
     message: spike
@@ -90,8 +114,8 @@ export function detectSpikes(source, category, thresholdMultiplier = 2.0) {
 /**
  * Calculate Levenshtein distance for string similarity
  */
-function levenshteinDistance(str1, str2) {
-  const matrix = [];
+function levenshteinDistance(str1: string, str2: string): number {
+  const matrix: number[][] = [];
 
   for (let i = 0; i <= str2.length; i++) {
     matrix[i] = [i];
@@ -118,11 +142,19 @@ function levenshteinDistance(str1, str2) {
   return matrix[str2.length][str1.length];
 }
 
+export interface SimilarError extends ErrorRecord {
+  similarity: number;
+}
+
 /**
  * Find similar errors based on message similarity
  */
-export function findSimilarErrors(error, recentErrors, threshold = 0.7) {
-  const similar = [];
+export function findSimilarErrors(
+  error: ErrorRecord,
+  recentErrors: ErrorRecord[],
+  threshold: number = 0.7
+): SimilarError[] {
+  const similar: SimilarError[] = [];
 
   for (const candidate of recentErrors) {
     if (candidate.id === error.id) continue;
@@ -146,17 +178,33 @@ export function findSimilarErrors(error, recentErrors, threshold = 0.7) {
   return similar.sort((a, b) => b.similarity - a.similarity);
 }
 
+export interface ErrorStatistics {
+  totalErrors: number;
+  errorRate: number;
+  categories: Array<{
+    category: string | null;
+    count: number;
+    lastOccurrence: number;
+  }>;
+  timeSeries: Array<{
+    timestamp: number;
+    count: number;
+    source: string;
+    category: string | null;
+  }>;
+}
+
 /**
  * Get error statistics for dashboard
  */
-export function getErrorStatistics(timeWindowMs = 3600000) {
+export function getErrorStatistics(timeWindowMs: number = 3600000): ErrorStatistics {
   const now = Date.now();
   const startTime = now - timeWindowMs;
   const currentBucket = Math.floor(now / 1000 / 300);
   const startBucket = Math.floor(startTime / 1000 / 300);
 
   // Get time-series data
-  const timeSeries = statements.getStatsInRange.all(startBucket, currentBucket);
+  const timeSeries = statements.getStatsInRange.all(startBucket, currentBucket) as StatsRow[];
 
   // Get category breakdown
   const categories = statements.getCategoryCounts.all(startTime);
@@ -169,7 +217,7 @@ export function getErrorStatistics(timeWindowMs = 3600000) {
     totalErrors,
     errorRate: Math.round(errorRate * 10) / 10,
     categories: categories.map(c => ({
-      category: c.category || 'Unknown',
+      category: c.category,
       count: c.count,
       lastOccurrence: c.last_occurrence
     })),
@@ -189,3 +237,4 @@ export default {
   findSimilarErrors,
   getErrorStatistics
 };
+

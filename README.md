@@ -1,6 +1,6 @@
-# ⚡ Error Intelligence Dashboard
+# ⚡ LogIntelligence Dashboard
 
-A real-time error intelligence dashboard that uses AI to automatically categorize, analyze, and detect patterns in application errors as they stream in. Built as a weekend MVP to demonstrate modern full-stack development patterns.
+A real-time LogIntelligence dashboard that uses AI to automatically categorize, analyze, and detect patterns in application errors as they stream in. Built as a weekend MVP to demonstrate modern full-stack development patterns.
 
 ## 🎯 Features
 

@@ -1,6 +1,6 @@
 # ✅ CLI Setup Complete!
 
-Your Error Intelligence Dashboard is now fully configured as an npm package with a CLI interface!
+Your LogIntelligence Dashboard is now fully configured as an npm package with a CLI interface!
 
 ## 🎉 What's Been Added
 
@@ -216,7 +216,7 @@ logintelligence setup
 logintelligence
 ```
 
-And have a fully functional AI-powered error intelligence dashboard running in seconds!
+And have a fully functional AI-powered LogIntelligence dashboard running in seconds!
 
 ---
 

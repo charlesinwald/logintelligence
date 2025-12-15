@@ -1,6 +1,6 @@
 # ✅ Setup Checklist
 
-Use this checklist to get your Error Intelligence Dashboard running smoothly.
+Use this checklist to get your LogIntelligence Dashboard running smoothly.
 
 ## Pre-Installation
 

@@ -1,6 +1,6 @@
-import express from 'express';
+import express, { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
 import { createServer } from 'http';
-import { Server } from 'socket.io';
+import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
@@ -18,7 +18,7 @@ const __dirname = dirname(__filename);
 
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer, {
+const io = new SocketIOServer(httpServer, {
   cors: {
     origin: process.env.NODE_ENV === 'production'
       ? process.env.FRONTEND_URL
@@ -36,7 +36,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Request logging in development
 if (process.env.NODE_ENV === 'development') {
-  app.use((req, res, next) => {
+  app.use((req: Request, res: Response, next: NextFunction) => {
     console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
     next();
   });
@@ -46,7 +46,7 @@ if (process.env.NODE_ENV === 'development') {
 app.set('io', io);
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/health', (req: Request, res: Response) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
@@ -65,7 +65,7 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(clientDistPath));
 
   // Serve index.html for all non-API routes
-  app.get('*', (req, res, next) => {
+  app.get('*', (req: Request, res: Response, next: NextFunction) => {
     // Skip API routes
     if (req.path.startsWith('/api/')) {
       return next();
@@ -75,28 +75,32 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Error handling middleware
-app.use((err, req, res, next) => {
+const errorHandler: ErrorRequestHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error('Error:', err);
-  res.status(err.status || 500).json({
+  res.status((err as any).status || 500).json({
     error: {
       message: err.message || 'Internal server error',
       ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
     }
   });
-});
+};
+
+app.use(errorHandler);
 
 // Initialize WebSocket handlers
 initializeSocketHandlers(io);
 
 // Start server
 httpServer.listen(PORT, () => {
+  const portStr = String(PORT).padEnd(4);
+  const envStr = (process.env.NODE_ENV || 'development').padEnd(11);
   console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║                                                            ║
-║   🚀 Error Intelligence Dashboard Server                  ║
+║   🚀 LogIntelligence Dashboard Server                  ║
 ║                                                            ║
-║   Server running on: http://localhost:${PORT}              ║
-║   Environment: ${process.env.NODE_ENV || 'development'}                                   ║
+║   Server running on: http://localhost:${portStr}              ║
+║   Environment: ${envStr}                                   ║
 ║   WebSocket: Ready                                         ║
 ║                                                            ║
 ╚════════════════════════════════════════════════════════════╝
@@ -113,3 +117,4 @@ process.on('SIGTERM', () => {
 });
 
 export { app, io };
+

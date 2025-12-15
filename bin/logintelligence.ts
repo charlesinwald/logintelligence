@@ -17,7 +17,7 @@ const command = args[0];
 // Handle commands
 if (command === 'setup') {
   // Run setup script
-  import('./setup.js');
+  import('./setup.ts');
   process.exit(0);
 }
 
@@ -33,7 +33,7 @@ if (command === 'help' || command === '-h' || command === '--help') {
   console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║                                                            ║
-║   ⚡ Error Intelligence Dashboard                         ║
+║   ⚡ LogIntelligence Dashboard                         ║
 ║                                                            ║
 ╚════════════════════════════════════════════════════════════╝
 
@@ -60,12 +60,12 @@ https://github.com/yourusername/logintelligence
 if (command === 'simulate') {
   console.log('🎯 Running error simulation...\n');
 
-  const simulate = spawn('node', [join(rootDir, 'scripts/simulate-errors.js'), ...args.slice(1)], {
+  const simulate = spawn('tsx', [join(rootDir, 'scripts/simulate-errors.ts'), ...args.slice(1)], {
     stdio: 'inherit',
     cwd: rootDir
   });
 
-  simulate.on('exit', (code) => {
+  simulate.on('exit', (code: number | null) => {
     process.exit(code || 0);
   });
 
@@ -76,7 +76,7 @@ if (command === 'simulate') {
 if (!isConfigured()) {
   console.log('\n╔════════════════════════════════════════════════════════════╗');
   console.log('║                                                            ║');
-  console.log('║   ⚠️  Error Intelligence Dashboard Not Configured         ║');
+  console.log('║   ⚠️  LogIntelligence Dashboard Not Configured         ║');
   console.log('║                                                            ║');
   console.log('╚════════════════════════════════════════════════════════════╝\n');
   console.log('You need to configure your Gemini API key first.\n');
@@ -87,12 +87,12 @@ if (!isConfigured()) {
 // Start the application
 console.log('\n╔════════════════════════════════════════════════════════════╗');
 console.log('║                                                            ║');
-console.log('║   🚀 Starting Error Intelligence Dashboard                ║');
+console.log('║   🚀 Starting LogIntelligence Dashboard                ║');
 console.log('║                                                            ║');
 console.log('╚════════════════════════════════════════════════════════════╝\n');
 
 // Set environment variables from config
-process.env.GEMINI_API_KEY = getApiKey();
+process.env.GEMINI_API_KEY = getApiKey() || '';
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 process.env.PORT = process.env.PORT || '3000';
 
@@ -118,12 +118,12 @@ console.log(`Server starting on: http://localhost:${PORT}`);
 console.log(`Dashboard will open at: http://localhost:${PORT}\n`);
 
 // Start the server
-const server = spawn('node', [join(rootDir, 'server/index.js')], {
+const server = spawn('tsx', [join(rootDir, 'server/index.ts')], {
   stdio: 'inherit',
   cwd: rootDir,
   env: {
     ...process.env,
-    GEMINI_API_KEY: getApiKey(),
+    GEMINI_API_KEY: getApiKey() || '',
     NODE_ENV: 'production',
     PORT: PORT
   }
@@ -161,9 +161,10 @@ process.on('SIGINT', () => {
   }, 1000);
 });
 
-server.on('exit', (code) => {
+server.on('exit', (code: number | null) => {
   if (code !== 0 && code !== null) {
     console.error(`\n✗ Server exited with code ${code}`);
     process.exit(code);
   }
 });
+

@@ -8,16 +8,16 @@ const rl = createInterface({
   output: process.stdout
 });
 
-function question(prompt) {
+function question(prompt: string): Promise<string> {
   return new Promise((resolve) => {
     rl.question(prompt, resolve);
   });
 }
 
-async function setup() {
+async function setup(): Promise<void> {
   console.log('\n╔════════════════════════════════════════════════════════════╗');
   console.log('║                                                            ║');
-  console.log('║   ⚙️  Error Intelligence Dashboard Setup                  ║');
+  console.log('║   ⚙️  LogIntelligence Dashboard Setup                  ║');
   console.log('║                                                            ║');
   console.log('╚════════════════════════════════════════════════════════════╝\n');
 
@@ -74,7 +74,8 @@ async function setup() {
   rl.close();
 }
 
-setup().catch((error) => {
+setup().catch((error: Error) => {
   console.error('Setup failed:', error);
   process.exit(1);
 });
+

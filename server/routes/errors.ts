@@ -1,10 +1,18 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { insertError, updateErrorWithAI, getRecentErrors, getCategoryStats, getErrorsInTimeRange } from '../db/index.js';
+import { Server as SocketIOServer } from 'socket.io';
+import { insertError, updateErrorWithAI, getRecentErrors, getErrorsInTimeRange, type ErrorData } from '../db/index.js';
 import { analyzeErrorStreaming } from '../services/ai.js';
-import { trackErrorPattern, detectSpikes, findSimilarErrors, getErrorStatistics } from '../services/patterns.js';
+import { trackErrorPattern, detectSpikes, findSimilarErrors, getErrorStatistics, type SpikeDetection } from '../services/patterns.js';
 
 const router = express.Router();
+
+// Extend Express Request to include io
+interface RequestWithIO extends Request {
+  app: express.Application & {
+    get: (key: string) => SocketIOServer;
+  };
+}
 
 // Validation schema
 const errorSchema = z.object({
@@ -24,81 +32,16 @@ const batchErrorSchema = z.object({
 });
 
 /**
- * POST /api/errors
- * Ingest a single error or batch of errors
- */
-router.post('/', async (req, res) => {
-  const io = req.app.get('io');
-
-  try {
-    // Handle both single and batch submissions
-    const isBatch = Array.isArray(req.body.errors);
-    const errors = isBatch ? req.body.errors : [req.body];
-
-    // Validate
-    if (isBatch) {
-      batchErrorSchema.parse(req.body);
-    } else {
-      errorSchema.parse(req.body);
-    }
-
-    const results = [];
-
-    for (const errorData of errors) {
-      // Set timestamp if not provided
-      if (!errorData.timestamp) {
-        errorData.timestamp = Date.now();
-      }
-
-      // Insert error into database
-      const errorId = insertError(errorData);
-
-      // Emit raw error to connected clients immediately
-      io.emit('error:new', {
-        id: errorId,
-        ...errorData,
-        ai_status: 'processing'
-      });
-
-      results.push({ id: errorId });
-
-      // Analyze with AI asynchronously (don't block response)
-      analyzeErrorWithStreaming(errorId, errorData, io).catch(err => {
-        console.error(`Failed to analyze error ${errorId}:`, err);
-        io.emit('error:ai_failed', { errorId, error: err.message });
-      });
-    }
-
-    res.status(201).json({
-      success: true,
-      count: results.length,
-      errors: results
-    });
-
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: error.errors
-      });
-    }
-
-    console.error('Error ingestion failed:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to ingest error'
-    });
-  }
-});
-
-/**
  * Analyze error with AI and stream results
  */
-async function analyzeErrorWithStreaming(errorId, errorData, io) {
+async function analyzeErrorWithStreaming(
+  errorId: number,
+  errorData: ErrorData,
+  io: SocketIOServer
+): Promise<void> {
   let streamedText = '';
 
-  const analysis = await analyzeErrorStreaming(errorData, (chunk) => {
+  const analysis = await analyzeErrorStreaming(errorData, (chunk: string) => {
     streamedText += chunk;
     // Emit each chunk to clients for real-time AI streaming
     io.emit('error:ai_stream', {
@@ -132,12 +75,81 @@ async function analyzeErrorWithStreaming(errorId, errorData, io) {
 }
 
 /**
+ * POST /api/errors
+ * Ingest a single error or batch of errors
+ */
+router.post('/', async (req: RequestWithIO, res: Response, next: NextFunction) => {
+  const io = req.app.get('io');
+
+  try {
+    // Handle both single and batch submissions
+    const isBatch = Array.isArray(req.body.errors);
+    const errors = isBatch ? req.body.errors : [req.body];
+
+    // Validate
+    if (isBatch) {
+      batchErrorSchema.parse(req.body);
+    } else {
+      errorSchema.parse(req.body);
+    }
+
+    const results: Array<{ id: number }> = [];
+
+    for (const errorData of errors) {
+      // Set timestamp if not provided
+      if (!errorData.timestamp) {
+        errorData.timestamp = Date.now();
+      }
+
+      // Insert error into database
+      const errorId = insertError(errorData as ErrorData);
+
+      // Emit raw error to connected clients immediately
+      io.emit('error:new', {
+        id: errorId,
+        ...errorData,
+        ai_status: 'processing'
+      });
+
+      results.push({ id: errorId });
+
+      // Analyze with AI asynchronously (don't block response)
+      analyzeErrorWithStreaming(errorId, errorData as ErrorData, io).catch((err: Error) => {
+        console.error(`Failed to analyze error ${errorId}:`, err);
+        io.emit('error:ai_failed', { errorId, error: err.message });
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      count: results.length,
+      errors: results
+    });
+
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: error.errors
+      });
+    }
+
+    console.error('Error ingestion failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to ingest error'
+    });
+  }
+});
+
+/**
  * GET /api/errors
  * Retrieve recent errors with optional filtering
  */
-router.get('/', (req, res) => {
+router.get('/', (req: Request, res: Response) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit) || 100, 1000);
+    const limit = Math.min(parseInt(req.query.limit as string) || 100, 1000);
     const errors = getRecentErrors(limit);
 
     res.json({
@@ -161,9 +173,9 @@ router.get('/', (req, res) => {
  * GET /api/errors/stats
  * Get error statistics and category breakdown
  */
-router.get('/stats', (req, res) => {
+router.get('/stats', (req: Request, res: Response) => {
   try {
-    const timeWindow = parseInt(req.query.window) || 3600000; // Default 1 hour
+    const timeWindow = parseInt(req.query.window as string) || 3600000; // Default 1 hour
     const stats = getErrorStatistics(timeWindow);
 
     res.json({
@@ -184,7 +196,7 @@ router.get('/stats', (req, res) => {
  * GET /api/errors/:id
  * Get a specific error by ID with similar errors
  */
-router.get('/:id', (req, res) => {
+router.get('/:id', (req: Request, res: Response) => {
   try {
     const errorId = parseInt(req.params.id);
     const error = getRecentErrors(1000).find(e => e.id === errorId);
@@ -221,7 +233,7 @@ router.get('/:id', (req, res) => {
  * GET /api/errors/range/:start/:end
  * Get errors in a specific time range
  */
-router.get('/range/:start/:end', (req, res) => {
+router.get('/range/:start/:end', (req: Request, res: Response) => {
   try {
     const start = parseInt(req.params.start);
     const end = parseInt(req.params.end);
@@ -254,3 +266,4 @@ router.get('/range/:start/:end', (req, res) => {
 });
 
 export default router;
+

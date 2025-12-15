@@ -2,7 +2,7 @@
 
 ## 🎉 Success! Your package is ready to publish!
 
-Your Error Intelligence Dashboard is now fully configured as a professional npm package with CLI capabilities.
+Your LogIntelligence Dashboard is now fully configured as a professional npm package with CLI capabilities.
 
 ---
 

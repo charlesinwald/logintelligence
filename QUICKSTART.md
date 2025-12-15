@@ -1,6 +1,6 @@
 # 🚀 Quick Start Guide
 
-Get the Error Intelligence Dashboard running in under 5 minutes!
+Get the LogIntelligence Dashboard running in under 5 minutes!
 
 ## Step 1: Get a Gemini API Key
 
@@ -137,4 +137,4 @@ npm run simulate
 
 ---
 
-**Have fun exploring the Error Intelligence Dashboard! 🎯**
+**Have fun exploring the LogIntelligence Dashboard! 🎯**

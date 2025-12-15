@@ -25,7 +25,8 @@ import('../server/db/index.js')
     console.log(`Database location: ${DB_PATH}`);
     process.exit(0);
   })
-  .catch((error) => {
+  .catch((error: Error) => {
     console.error('✗ Database setup failed:', error);
     process.exit(1);
   });
+
