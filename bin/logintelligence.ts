@@ -43,6 +43,7 @@ Commands:
   (none)           Start the dashboard
   setup            Configure Gemini API key
   simulate         Run error simulation for demo
+  ingest           Ingest errors from stdin/stderr stream
   version, -v      Show version number
   help, -h         Show this help message
 
@@ -50,6 +51,7 @@ Examples:
   logintelligence              # Start the dashboard
   logintelligence setup        # Configure API key
   logintelligence simulate     # Run demo simulation
+  your-app 2>&1 | logintelligence ingest --source my-app
 
 For more information, visit:
 https://github.com/yourusername/logintelligence
@@ -66,6 +68,19 @@ if (command === 'simulate') {
   });
 
   simulate.on('exit', (code: number | null) => {
+    process.exit(code || 0);
+  });
+
+  return;
+}
+
+if (command === 'ingest') {
+  const ingest = spawn('tsx', [join(rootDir, 'scripts/ingest-stream.ts'), ...args.slice(1)], {
+    stdio: 'inherit',
+    cwd: rootDir
+  });
+
+  ingest.on('exit', (code: number | null) => {
     process.exit(code || 0);
   });
 
