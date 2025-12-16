@@ -37,7 +37,7 @@ export function initializeSocketHandlers(io: SocketIOServer): void {
         socket.emit('data:initial', {
           errors: recentErrors.map((err: ErrorRecord) => ({
             ...err,
-            metadata: err.metadata ? JSON.parse(err.metadata) : null
+            metadata: err.metadata ? JSON.parse(err.metadata as unknown as string) : null
           })),
           stats,
           timestamp: Date.now()

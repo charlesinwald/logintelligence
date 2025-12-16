@@ -157,7 +157,7 @@ router.get('/', (req: Request, res: Response) => {
       count: errors.length,
       errors: errors.map(err => ({
         ...err,
-        metadata: err.metadata ? JSON.parse(err.metadata) : null
+        metadata: err.metadata ? JSON.parse(err.metadata as unknown as string) : null
       }))
     });
   } catch (error) {
@@ -216,7 +216,7 @@ router.get('/:id', (req: Request, res: Response) => {
       success: true,
       error: {
         ...error,
-        metadata: error.metadata ? JSON.parse(error.metadata) : null
+        metadata: error.metadata ? JSON.parse(error.metadata as unknown as string) : null
       },
       similarErrors: similar.slice(0, 10) // Top 10 similar
     });
@@ -253,7 +253,7 @@ router.get('/range/:start/:end', (req: Request, res: Response) => {
       timeRange: { start, end },
       errors: errors.map(err => ({
         ...err,
-        metadata: err.metadata ? JSON.parse(err.metadata) : null
+        metadata: err.metadata ? JSON.parse(err.metadata as unknown as string) : null
       }))
     });
   } catch (error) {

@@ -1,22 +1,30 @@
 {
   "name": "logintelligence",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Real-time LogIntelligence dashboard with AI-powered classification and pattern detection using Gemini",
   "type": "module",
-  "main": "server/index.ts",
+  "main": "dist/server/index.js",
   "bin": {
-    "logintelligence": "./bin/logintelligence.ts"
+    "logintelligence": "dist/bin/logintelligence.js"
   },
+  "files": [
+    "dist",
+    "client/dist",
+    "package.json",
+    "README.md",
+    ".env.example"
+  ],
   "scripts": {
     "dev": "concurrently \"yarn server:dev\" \"yarn client:dev\"",
     "server:dev": "NODE_ENV=development tsx watch server/index.ts",
     "client:dev": "cd client && yarn dev",
     "server": "tsx server/index.ts",
-    "build": "cd client && yarn build",
+    "build": "yarn build:server && cd client && yarn build",
+    "build:server": "tsc && cp server/db/schema.sql dist/server/db/schema.sql",
     "simulate": "tsx scripts/simulate-errors.ts",
     "ingest": "tsx scripts/ingest-stream.ts",
     "setup": "yarn install && cd client && yarn install && cd .. && tsx scripts/setup-db.ts",
-    "prepublishOnly": "cd client && yarn install && yarn build",
+    "prepublishOnly": "yarn build",
     "postinstall": "node -e \"require('fs').mkdirSync('data',{recursive:true})\""
   },
   "keywords": [
@@ -32,16 +40,16 @@
     "observability",
     "gemini-ai"
   ],
-  "author": "Your Name <your.email@example.com>",
+  "author": "Charles Inwald <charlesinwald@users.noreply.github.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/logintelligence.git"
+    "url": "https://github.com/charlesinwald/logintelligence.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/logintelligence/issues"
+    "url": "https://github.com/charlesinwald/logintelligence/issues"
   },
-  "homepage": "https://github.com/yourusername/logintelligence#readme",
+  "homepage": "https://github.com/charlesinwald/logintelligence#readme",
   "engines": {
     "node": ">=18.0.0"
   },

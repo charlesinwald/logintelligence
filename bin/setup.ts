@@ -1,17 +1,15 @@
 #!/usr/bin/env node
 
-import { createInterface } from 'readline';
+import * as readline from 'readline/promises';
 import { setApiKey, getApiKey, getConfigPath } from '../lib/config.js';
 
-const rl = createInterface({
+const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
 });
 
-function question(prompt: string): Promise<string> {
-  return new Promise((resolve) => {
-    rl.question(prompt, resolve);
-  });
+async function question(prompt: string): Promise<string> {
+  return await rl.question(prompt);
 }
 
 async function setup(): Promise<void> {

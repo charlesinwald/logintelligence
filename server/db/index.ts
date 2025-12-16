@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import Database, { type Statement } from 'better-sqlite3';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -207,7 +207,7 @@ export const statements = {
     GROUP BY source, category
   `
   )
-};
+} as any;
 
 // Utility functions
 export function insertError(errorData: ErrorData): number {

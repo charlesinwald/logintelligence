@@ -188,7 +188,7 @@ async function sendError(error: ErrorData): Promise<void> {
     if (!response.ok) {
       console.error(`Failed to send error: ${response.status} ${response.statusText}`);
     } else {
-      const data = await response.json();
+      const data = await response.json() as { errors: Array<{ id: string }> };
       console.log(`✓ Error sent: ${error.message.substring(0, 60)}... (ID: ${data.errors[0].id})`);
     }
   } catch (error) {

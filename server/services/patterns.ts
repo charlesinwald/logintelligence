@@ -207,7 +207,7 @@ export function getErrorStatistics(timeWindowMs: number = 3600000): ErrorStatist
   const timeSeries = statements.getStatsInRange.all(startBucket, currentBucket) as StatsRow[];
 
   // Get category breakdown
-  const categories = statements.getCategoryCounts.all(startTime);
+  const categories = statements.getCategoryCounts.all(startTime) as Array<{ category: string; count: number; last_occurrence: number }>;
 
   // Calculate overall stats
   const totalErrors = timeSeries.reduce((sum, stat) => sum + stat.total_errors, 0);
