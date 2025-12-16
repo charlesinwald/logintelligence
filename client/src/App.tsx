@@ -1,8 +1,10 @@
 import { useSocket } from './hooks/useSocket';
+import { useConfig } from './hooks/useConfig';
 import { Dashboard } from './components/Dashboard';
 
 function App() {
-  const { connected, errors, stats, aiStreaming, spikes, requestStats, clearSpikes } = useSocket();
+  const { config, updateConfig, resetConfig, getSocketUrl } = useConfig();
+  const { connected, errors, stats, aiStreaming, spikes, requestStats, clearSpikes, reconnect } = useSocket(getSocketUrl());
 
   return (
     <Dashboard
@@ -13,6 +15,10 @@ function App() {
       spikes={spikes}
       onClearSpikes={clearSpikes}
       requestStats={requestStats}
+      config={config}
+      onUpdateConfig={updateConfig}
+      onResetConfig={resetConfig}
+      onReconnect={reconnect}
     />
   );
 }

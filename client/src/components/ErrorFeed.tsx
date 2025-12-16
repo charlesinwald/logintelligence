@@ -37,7 +37,7 @@ export function ErrorFeed({ errors, aiStreaming = {} }: ErrorFeedProps) {
 
   return (
     <div className="glass-card h-full flex flex-col rounded-xl overflow-hidden neon-border">
-      <div className="flex items-center justify-between p-6 border-b border-border/50 bg-gradient-to-r from-primary/10 to-secondary/10">
+      <div className="flex items-center justify-between p-6 border-b border-border/50 bg-gradient-to-r from-primary/0 to-secondary/10">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/20 glow-primary">
             <Activity className="w-5 h-5 text-primary" />

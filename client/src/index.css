@@ -137,6 +137,64 @@
     font-family: var(--font-display);
     font-weight: 700;
   }
+
+  /* Custom scrollbar styles */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.708 0 0 / 0.5) oklch(0.97 0 0 / 0.3);
+  }
+
+  /* WebKit scrollbar styles for Chromium browsers */
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: oklch(0.97 0 0 / 0.3);
+    border-radius: 5px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: oklch(0.708 0 0 / 0.5);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.65 0.25 264 / 0.7);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    box-shadow: 0 0 10px oklch(0.65 0.25 264 / 0.4);
+  }
+
+  *::-webkit-scrollbar-thumb:active {
+    background: oklch(0.65 0.25 264 / 0.9);
+  }
+
+  /* Dark mode scrollbar styles */
+  .dark * {
+    scrollbar-color: oklch(0.556 0 0 / 0.6) oklch(0.269 0 0 / 0.4);
+  }
+
+  .dark *::-webkit-scrollbar-track {
+    background: oklch(0.269 0 0 / 0.4);
+  }
+
+  .dark *::-webkit-scrollbar-thumb {
+    background: oklch(0.556 0 0 / 0.6);
+  }
+
+  .dark *::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.65 0.25 264 / 0.8);
+    box-shadow: 0 0 12px oklch(0.65 0.25 264 / 0.5);
+  }
+
+  .dark *::-webkit-scrollbar-thumb:active {
+    background: oklch(0.65 0.25 264);
+  }
 }
 
 /* Custom futuristic utility classes */

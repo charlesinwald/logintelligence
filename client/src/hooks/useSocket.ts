@@ -1,8 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
-
 // Type definitions
 export interface ErrorRecord {
   id: number;
@@ -57,12 +55,13 @@ export interface UseSocketReturn {
   requestStats: (timeWindow?: number) => void;
   clearSpikes: () => void;
   clearErrors: () => void;
+  reconnect: () => void;
 }
 
 /**
  * Custom hook for managing Socket.io connection and real-time events
  */
-export function useSocket(): UseSocketReturn {
+export function useSocket(socketUrl: string): UseSocketReturn {
   const [connected, setConnected] = useState<boolean>(false);
   const [errors, setErrors] = useState<ErrorRecord[]>([]);
   const [stats, setStats] = useState<ErrorStatistics | null>(null);
@@ -72,7 +71,7 @@ export function useSocket(): UseSocketReturn {
 
   useEffect(() => {
     // Initialize socket connection
-    socketRef.current = io(SOCKET_URL, {
+    socketRef.current = io(socketUrl, {
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000
@@ -175,7 +174,7 @@ export function useSocket(): UseSocketReturn {
     return () => {
       socket.disconnect();
     };
-  }, []);
+  }, [socketUrl]);
 
   // Request stats update
   const requestStats = useCallback((timeWindow: number = 3600000) => {
@@ -194,6 +193,14 @@ export function useSocket(): UseSocketReturn {
     setErrors([]);
   }, []);
 
+  // Force reconnect
+  const reconnect = useCallback(() => {
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current.connect();
+    }
+  }, []);
+
   return {
     connected,
     errors,
@@ -202,7 +209,8 @@ export function useSocket(): UseSocketReturn {
     spikes,
     requestStats,
     clearSpikes,
-    clearErrors
+    clearErrors,
+    reconnect
   };
 }
 

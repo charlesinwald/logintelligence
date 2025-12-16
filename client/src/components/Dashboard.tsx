@@ -1,12 +1,13 @@
-"use client"
-
 import type React from "react"
 
 import { useState, useEffect } from "react"
 import { ErrorFeed } from "./ErrorFeed"
 import { CategoryChart } from "./CategoryChart"
 import { SpikeAlert } from "./SpikeAlert"
-import { Activity, BarChart3, Folder, Zap, Wifi, WifiOff } from "lucide-react"
+import { Settings } from "./Settings"
+import { Activity, BarChart3, Folder, Zap, Wifi, WifiOff, Settings as SettingsIcon } from "lucide-react"
+import { DottedSurface } from "./ui/dotted-surface"
+import type { AppConfig } from "../hooks/useConfig"
 
 interface DashboardProps {
   connected: boolean
@@ -20,6 +21,10 @@ interface DashboardProps {
   spikes: unknown[]
   onClearSpikes: () => void
   requestStats: (timeWindow: number) => void
+  config: AppConfig
+  onUpdateConfig: (updates: Partial<AppConfig>) => void
+  onResetConfig: () => void
+  onReconnect: () => void
 }
 
 export function Dashboard({
@@ -30,8 +35,13 @@ export function Dashboard({
   spikes,
   onClearSpikes,
   requestStats,
+  config,
+  onUpdateConfig,
+  onResetConfig,
+  onReconnect,
 }: DashboardProps) {
   const [timeWindow, setTimeWindow] = useState("1h")
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   const timeWindows: Record<string, number> = {
     "15m": 900000,
@@ -48,12 +58,13 @@ export function Dashboard({
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
+      <DottedSurface theme="dark" />
       <header className="glass-card border-b border-border/50 sticky top-0 z-50 backdrop-blur-xl">
         <div className="container mx-auto px-4 py-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-primary/30 to-secondary/30 glow-primary">
+              <div className="p-3 rounded-xl bg-linear-to-br from-primary/30 to-secondary/30 glow-primary">
                 <Zap className="w-8 h-8 text-primary" />
               </div>
               <div>
@@ -93,6 +104,14 @@ export function Dashboard({
                 <option value="1h">Last hour</option>
                 <option value="24h">Last 24 hours</option>
               </select>
+
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="p-2 rounded-lg bg-muted/50 border border-primary/30 hover:border-primary/60 hover:bg-muted/70 transition-all"
+                aria-label="Open settings"
+              >
+                <SettingsIcon className="w-5 h-5 text-primary" />
+              </button>
             </div>
           </div>
         </div>
@@ -145,6 +164,15 @@ export function Dashboard({
           </p>
         </div>
       </footer>
+
+      <Settings
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        config={config}
+        onUpdateConfig={onUpdateConfig}
+        onResetConfig={onResetConfig}
+        onReconnect={onReconnect}
+      />
     </div>
   )
 }
@@ -173,8 +201,8 @@ function StatCard({
     >
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <p className="text-sm text-muted-foreground uppercase tracking-wider mb-2">{title}</p>
-          <p className="text-3xl font-bold text-foreground">{value}</p>
+          <p className="text-sm text-accent uppercase tracking-wider mb-2">{title}</p>
+          <p className="text-3xl font-bold gradient-text">{value}</p>
         </div>
         <div className={`p-3 rounded-xl bg-gradient-to-br ${colorClasses[color]}`}>{icon}</div>
       </div>

@@ -1,17 +1,18 @@
-'use client';
 import { cn } from '@/lib/utils';
-import { useTheme } from 'next-themes';
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
-type DottedSurfaceProps = Omit<React.ComponentProps<'div'>, 'ref'>;
+type DottedSurfaceProps = Omit<React.ComponentProps<'div'>, 'ref'> & {
+	theme?: 'light' | 'dark';
+};
 
 export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
-	const { theme } = useTheme();
+	// Detect theme from document class or default to light
+	const theme = props.theme || document.documentElement.classList.contains('dark') ? 'dark' : 'light';
 
 	const containerRef = useRef<HTMLDivElement>(null);
 	const sceneRef = useRef<{
-		scene: THREE.Scene;
+		scene: THREE.Scene;	
 		camera: THREE.PerspectiveCamera;
 		renderer: THREE.WebGLRenderer;
 		particles: THREE.Points[];
@@ -184,7 +185,7 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
 	return (
 		<div
 			ref={containerRef}
-			className={cn('pointer-events-none fixed inset-0 -z-1', className)}
+			className={cn('pointer-events-none fixed inset-0 -z-1', className, theme === 'dark' && 'bg-black')}
 			{...props}
 		/>
 	);
