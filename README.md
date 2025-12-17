@@ -1,23 +1,84 @@
-# ⚡ LogIntelligence Dashboard
+# ⚡ LogIntelligence
 
-A real-time LogIntelligence dashboard that uses AI to automatically categorize, analyze, and detect patterns in application errors as they stream in. Built as a weekend MVP to demonstrate modern full-stack development patterns.
+> Real-time AI-powered error monitoring and analysis dashboard
 
-## 🎯 Features
+A production-ready error monitoring solution that automatically categorizes, analyzes, and detects patterns in your application errors using AI. Get instant insights with real-time streaming analysis and intelligent alerting.
 
-### Core Functionality
+## 📋 Prerequisites
+
+- Node.js 18 or higher
+- A free Google Gemini API key ([Get one here](https://ai.google.dev/))
+
+## 🚀 Quick Start
+
+Get up and running in 30 seconds:
+
+```bash
+# Install globally
+npm install -g logintelligence
+
+# Configure your API key
+logintelligence setup
+
+# Start the dashboard
+logintelligence
+```
+
+The dashboard will automatically open in your browser at http://localhost:7878
+
+### First Time Setup
+
+1. **Get a Gemini API Key** (free): Visit [https://ai.google.dev/](https://ai.google.dev/) and generate an API key
+2. **Run setup**: When you run `logintelligence setup`, paste your API key when prompted
+3. **Start monitoring**: Run `logintelligence` to launch the dashboard
+
+### Try the Demo
+
+Want to see it in action? Run the error simulator:
+
+```bash
+logintelligence simulate
+```
+
+This will generate realistic error patterns so you can explore the dashboard features.
+
+## 📡 Send Your First Error
+
+Once the dashboard is running, send an error from your application:
+
+```bash
+curl -X POST http://localhost:7878/api/errors \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Database connection timeout",
+    "stack_trace": "Error: Connection timeout\n    at Database.connect...",
+    "source": "api-gateway",
+    "severity": "high"
+  }'
+```
+
+Watch it appear instantly in the dashboard with AI-powered analysis!
+
+## 🎯 What You Get
+
 - **Real-time Error Ingestion**: REST API endpoint for single or batch error submission
 - **AI-Powered Classification**: Automatic categorization and severity assessment using Google Gemini
 - **Live Streaming Analysis**: See AI analysis happening in real-time via WebSocket
 - **Pattern Detection**: Automatic clustering of similar errors using Levenshtein distance
 - **Spike Detection**: Smart alerting when error rates exceed baseline thresholds
 - **Time-Windowed Views**: Analyze errors over 15 minutes, 1 hour, or 24 hours
+- **Beautiful Dashboard**: Modern React UI with real-time charts and filtering
 
-### Technical Highlights
-- WebSocket-based real-time updates using Socket.io
-- Streaming AI responses for immediate feedback
-- SQLite with WAL mode for efficient concurrent access
-- React dashboard with Tailwind CSS and Recharts
-- Comprehensive error simulation script for demos
+## 📖 CLI Commands
+
+```bash
+logintelligence              # Start dashboard on port 7878
+logintelligence setup        # Configure Gemini API key
+logintelligence simulate     # Run error simulation demo
+logintelligence ingest       # Ingest errors from log files
+logintelligence --help       # Show all available commands
+logintelligence --version    # Show version number
+```
 
 ## 🏗️ Tech Stack
 
@@ -30,48 +91,114 @@ A real-time LogIntelligence dashboard that uses AI to automatically categorize, 
 - **Database**: SQLite with better-sqlite3
 - **Validation**: Zod
 
-## 📋 Prerequisites
+## 💡 Integration Examples
 
-- Node.js 18+ (for native fetch support)
-- npm or yarn
-- Google Gemini API key ([Get one here](https://ai.google.dev/))
+### Node.js/Express
 
-## 🚀 Quick Start
+```javascript
+const axios = require('axios');
 
-### Option 1: Install from npm (Recommended)
+// Send error to LogIntelligence
+async function reportError(error, context = {}) {
+  try {
+    await axios.post('http://localhost:7878/api/errors', {
+      message: error.message,
+      stack_trace: error.stack,
+      source: 'my-app',
+      severity: 'high',
+      metadata: context
+    });
+  } catch (err) {
+    console.error('Failed to report error:', err);
+  }
+}
 
-The easiest way to get started:
+// Use in your error handling
+app.use((err, req, res, next) => {
+  reportError(err, { url: req.url, method: req.method });
+  res.status(500).json({ error: 'Internal server error' });
+});
+```
+
+### Python
+
+```python
+import requests
+import traceback
+
+def report_error(error, source="python-app"):
+    try:
+        requests.post('http://localhost:7878/api/errors', json={
+            'message': str(error),
+            'stack_trace': traceback.format_exc(),
+            'source': source,
+            'severity': 'high'
+        })
+    except Exception as e:
+        print(f'Failed to report error: {e}')
+```
+
+### Any Language (curl)
 
 ```bash
-# Install globally
-npm install -g logintelligence
+# Send error from any language/script
+curl -X POST http://localhost:7878/api/errors \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"message\": \"$ERROR_MESSAGE\",
+    \"source\": \"$APP_NAME\",
+    \"severity\": \"high\"
+  }"
+```
 
-# Run setup to configure your Gemini API key
+## ❓ Troubleshooting
+
+### API Key Issues
+
+If you see "API key not configured" errors:
+```bash
+# Re-run setup
 logintelligence setup
 
-# Start the dashboard (opens in browser automatically)
+# Or manually set environment variable
+export GEMINI_API_KEY=your_key_here
 logintelligence
 ```
 
-That's it! The dashboard will automatically open at http://localhost:3000
+### Port Already in Use
 
-#### Additional Commands
-
+If port 7878 is taken, set a custom port:
 ```bash
-logintelligence              # Start dashboard
-logintelligence setup        # Configure API key
-logintelligence simulate     # Run error simulation demo
-logintelligence --help       # Show help
-logintelligence --version    # Show version
+PORT=8080 logintelligence
 ```
 
-### Option 2: Run from Source (For Development)
+### Database Errors
 
-#### 1. Clone and Install
+If you encounter database issues:
+```bash
+# Remove and reinitialize database
+rm -rf ~/.logintelligence/data
+logintelligence
+```
+
+### Node Version
+
+Ensure you're using Node.js 18 or higher:
+```bash
+node --version  # Should be v18.0.0 or higher
+```
+
+---
+
+## 🔧 Development Setup
+
+Want to contribute or run from source?
+
+### 1. Clone and Install
 
 ```bash
 # Clone the repository
-git clone <your-repo-url>
+git clone https://github.com/charlesinwald/logintelligence.git
 cd logintelligence
 
 # Install dependencies
@@ -80,7 +207,7 @@ npm run setup
 
 This will install both server and client dependencies and initialize the database.
 
-#### 2. Configure Environment
+### 2. Configure Environment
 
 ```bash
 # Copy the example env file
@@ -93,25 +220,25 @@ nano .env
 Required environment variables:
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
-PORT=3000
+PORT=7878
 NODE_ENV=development
 DB_PATH=./data/errors.db
 ```
 
-#### 3. Start the Development Server
+### 3. Start the Development Server
 
 ```bash
 # Start both server and client (recommended)
 npm run dev
 
 # Or start them separately:
-npm run server:dev  # Server on http://localhost:3000
+npm run server:dev  # Server on http://localhost:7878
 npm run client:dev  # Client on http://localhost:5173
 ```
 
 The dashboard will be available at **http://localhost:5173**
 
-#### 4. Generate Demo Errors
+### 4. Generate Demo Errors
 
 Open a new terminal and run the simulation script:
 
@@ -213,7 +340,7 @@ Returns errors between start and end timestamps.
          ↓
 ┌─────────────────┐
 │  Express Server │ ← REST API + WebSocket
-│   (Port 3000)   │
+│   (Port 7878)   │
 └────────┬────────┘
          │
     ┌────┴────┬──────────┐
