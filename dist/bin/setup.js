@@ -8,7 +8,7 @@ const rl = readline.createInterface({
 async function question(prompt) {
     return await rl.question(prompt);
 }
-async function setup() {
+export async function setup() {
     console.log('\n╔════════════════════════════════════════════════════════════╗');
     console.log('║                                                            ║');
     console.log('║   ⚙️  LogIntelligence Dashboard Setup                  ║');
@@ -56,8 +56,11 @@ async function setup() {
     }
     rl.close();
 }
-setup().catch((error) => {
-    console.error('Setup failed:', error);
-    process.exit(1);
-});
+// Only run setup if this file is executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+    setup().catch((error) => {
+        console.error('Setup failed:', error);
+        process.exit(1);
+    });
+}
 //# sourceMappingURL=setup.js.map

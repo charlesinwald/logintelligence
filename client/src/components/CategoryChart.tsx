@@ -1,7 +1,7 @@
 "use client"
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts"
-import { BarChart3 } from "lucide-react"
+import { BarChart3, Loader2 } from "lucide-react"
 
 interface CategoryData {
   category: string
@@ -14,15 +14,30 @@ interface StatsData {
 
 interface CategoryChartProps {
   stats?: StatsData
+  isLoading?: boolean
 }
 
-export function CategoryChart({ stats }: CategoryChartProps) {
+export function CategoryChart({ stats, isLoading = false }: CategoryChartProps) {
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="glass-card h-full flex items-center justify-center rounded-xl neon-border">
+        <div className="text-center">
+          <Loader2 className="w-16 h-16 mx-auto mb-4 text-primary animate-spin" />
+          <p className="text-muted-foreground text-base">Loading category data...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Empty state
   if (!stats || !stats.categories || stats.categories.length === 0) {
     return (
       <div className="glass-card h-full flex items-center justify-center rounded-xl neon-border">
         <div className="text-center">
-          <BarChart3 className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
-          <p className="text-muted-foreground text-sm">No category data available</p>
+          <BarChart3 className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+          <p className="text-muted-foreground text-base mb-2">No category data available</p>
+          <p className="text-sm text-muted-foreground/70">Category breakdowns will appear here once errors are detected</p>
         </div>
       </div>
     )
@@ -48,12 +63,12 @@ export function CategoryChart({ stats }: CategoryChartProps) {
     <div className="glass-card h-full rounded-xl neon-border overflow-hidden">
       <div className="p-6 border-b border-border/50 bg-gradient-to-r from-secondary/10 to-accent/10">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-secondary/20 glow-secondary">
-            <BarChart3 className="w-5 h-5 text-secondary" />
+          <div className="p-3 rounded-lg bg-secondary/30 glow-secondary">
+            <BarChart3 className="w-6 h-6 text-secondary" />
           </div>
           <div>
-            <h2 className="text-xl font-bold gradient-text">Error Categories</h2>
-            <p className="text-xs text-muted-foreground">Top 10 by frequency</p>
+            <h2 className="text-2xl font-bold gradient-text">Error Categories</h2>
+            <p className="text-sm text-muted-foreground">Top 10 by frequency</p>
           </div>
         </div>
       </div>
@@ -66,24 +81,27 @@ export function CategoryChart({ stats }: CategoryChartProps) {
               <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.25 0.04 264 / 0.3)" vertical={false} />
               <XAxis
                 dataKey="category"
-                stroke="oklch(0.65 0.05 264)"
-                tick={{ fill: "oklch(0.65 0.05 264)", fontSize: 11, fontWeight: 500 }}
+                stroke="oklch(0.75 0 0)"
+                tick={{ fill: "oklch(0.75 0 0)", fontSize: 12, fontWeight: 600 }}
                 angle={-45}
                 textAnchor="end"
                 height={80}
               />
               <YAxis
-                stroke="oklch(0.65 0.05 264)"
-                tick={{ fill: "oklch(0.65 0.05 264)", fontSize: 11, fontWeight: 500 }}
+                stroke="oklch(0.75 0 0)"
+                tick={{ fill: "oklch(0.75 0 0)", fontSize: 12, fontWeight: 600 }}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "oklch(0.12 0.02 264)",
-                  border: "1px solid oklch(0.65 0.25 264 / 0.5)",
-                  borderRadius: "8px",
+                  backgroundColor: "oklch(0.16 0.02 264 / 0.95)",
+                  border: "2px solid oklch(0.65 0.25 264 / 0.6)",
+                  borderRadius: "10px",
                   color: "oklch(0.98 0 0)",
-                  boxShadow: "0 0 20px oklch(0.65 0.25 264 / 0.3)",
-                  backdropFilter: "blur(12px)",
+                  boxShadow: "0 0 25px oklch(0.65 0.25 264 / 0.4)",
+                  backdropFilter: "blur(16px)",
+                  padding: "12px",
+                  fontSize: "14px",
+                  fontWeight: 600,
                 }}
                 cursor={{ fill: "oklch(0.25 0.04 264 / 0.5)" }}
               />
@@ -106,17 +124,17 @@ export function CategoryChart({ stats }: CategoryChartProps) {
           {chartData.map((cat, index) => (
             <div
               key={cat.category}
-              className="flex items-center gap-2 p-2 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors"
+              className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/40 transition-colors border border-border/50"
             >
               <div
-                className="w-3 h-3 rounded pulse-glow"
+                className="w-4 h-4 rounded pulse-glow"
                 style={{
                   backgroundColor: getCategoryColor(cat.category, index),
-                  boxShadow: `0 0 10px ${getCategoryColor(cat.category, index)}60`,
+                  boxShadow: `0 0 12px ${getCategoryColor(cat.category, index)}70`,
                 }}
               />
-              <span className="text-sm text-foreground/90 truncate flex-1">{cat.category}</span>
-              <span className="text-sm font-bold text-foreground">{cat.count}</span>
+              <span className="text-base text-foreground truncate flex-1 font-medium">{cat.category}</span>
+              <span className="text-base font-bold text-foreground">{cat.count}</span>
             </div>
           ))}
         </div>

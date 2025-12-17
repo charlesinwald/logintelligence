@@ -12,7 +12,7 @@ async function question(prompt: string): Promise<string> {
   return await rl.question(prompt);
 }
 
-async function setup(): Promise<void> {
+export async function setup(): Promise<void> {
   console.log('\n╔════════════════════════════════════════════════════════════╗');
   console.log('║                                                            ║');
   console.log('║   ⚙️  LogIntelligence Dashboard Setup                  ║');
@@ -72,8 +72,11 @@ async function setup(): Promise<void> {
   rl.close();
 }
 
-setup().catch((error: Error) => {
-  console.error('Setup failed:', error);
-  process.exit(1);
-});
+// Only run setup if this file is executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  setup().catch((error: Error) => {
+    console.error('Setup failed:', error);
+    process.exit(1);
+  });
+}
 

@@ -5,7 +5,7 @@ import { ErrorFeed } from "./ErrorFeed"
 import { CategoryChart } from "./CategoryChart"
 import { SpikeAlert } from "./SpikeAlert"
 import { Settings } from "./Settings"
-import { Activity, BarChart3, Folder, Zap, Wifi, WifiOff, Settings as SettingsIcon } from "lucide-react"
+import { Activity, BarChart3, Folder, Zap, Wifi, WifiOff, Settings as SettingsIcon, Loader2, ChevronDown } from "lucide-react"
 import { DottedSurface } from "./ui/dotted-surface"
 import type { AppConfig } from "../hooks/useConfig"
 
@@ -42,6 +42,7 @@ export function Dashboard({
 }: DashboardProps) {
   const [timeWindow, setTimeWindow] = useState("1h")
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isLoadingStats, setIsLoadingStats] = useState(false)
 
   const timeWindows: Record<string, number> = {
     "15m": 900000,
@@ -50,7 +51,11 @@ export function Dashboard({
   }
 
   useEffect(() => {
+    setIsLoadingStats(true)
     requestStats(timeWindows[timeWindow])
+    // Reset loading state after a short delay
+    const timer = setTimeout(() => setIsLoadingStats(false), 500)
+    return () => clearTimeout(timer)
   }, [timeWindow, requestStats, timeWindows])
 
   const formatErrorRate = (rate: number) => {
@@ -59,13 +64,20 @@ export function Dashboard({
 
   return (
     <div className="min-h-screen">
+      {/* Skip to main content link for accessibility */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[200] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-lg focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
       <DottedSurface theme="dark" />
-      <header className="glass-card border-b border-border/50 sticky top-0 z-50 backdrop-blur-xl">
+      <header className="glass-card border-b border-border/50 sticky top-0 z-50 backdrop-blur-xl" role="banner">
         <div className="container mx-auto px-4 py-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-linear-to-br from-primary/30 to-secondary/30 glow-primary">
-                <Zap className="w-8 h-8 text-primary" />
+              <div className="p-3 rounded-xl bg-linear-to-br from-glow-primary/30 to-glow-secondary/30 glow-primary">
+                <Zap className="w-8 h-8 text-blue-500" />
               </div>
               <div>
                 <h1 className="text-3xl font-bold gradient-text text-balance">LogIntelligence</h1>
@@ -80,34 +92,47 @@ export function Dashboard({
                     ? "bg-success/20 border border-success/40"
                     : "bg-destructive/20 border border-destructive/40"
                 }`}
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
               >
                 {connected ? (
                   <>
-                    <Wifi className="w-4 h-4 text-success" />
+                    <Wifi className="w-4 h-4 text-success" aria-hidden="true" />
                     <span className="text-sm font-medium text-success">Connected</span>
-                    <div className="w-2 h-2 rounded-full bg-success animate-pulse glow-accent" />
+                    <div className="w-2 h-2 rounded-full bg-success animate-pulse glow-accent" aria-hidden="true" />
                   </>
                 ) : (
                   <>
-                    <WifiOff className="w-4 h-4 text-destructive" />
+                    <WifiOff className="w-4 h-4 text-destructive" aria-hidden="true" />
                     <span className="text-sm font-medium text-destructive">Disconnected</span>
                   </>
                 )}
               </div>
 
-              <select
-                value={timeWindow}
-                onChange={(e) => setTimeWindow(e.target.value)}
-                className="bg-muted/50 border border-primary/30 rounded-lg px-4 py-2 text-sm font-medium backdrop-blur-sm hover:border-primary/60 transition-all focus:outline-none focus:ring-2 focus:ring-primary/50"
-              >
-                <option value="15m">Last 15 minutes</option>
-                <option value="1h">Last hour</option>
-                <option value="24h">Last 24 hours</option>
-              </select>
+              <div className="relative">
+                <select
+                  value={timeWindow}
+                  onChange={(e) => setTimeWindow(e.target.value)}
+                  className="appearance-none bg-muted/70 border-2 border-primary/40 rounded-lg pl-5 pr-12 py-2.5 text-base font-semibold backdrop-blur-sm hover:border-primary/70 hover:bg-muted/90 transition-all focus:outline-none focus:ring-2 focus:ring-primary/60 cursor-pointer"
+                  aria-label="Select time window"
+                >
+                  <option value="15m">Last 15 minutes</option>
+                  <option value="1h">Last hour</option>
+                  <option value="24h">Last 24 hours</option>
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center gap-1">
+                  {isLoadingStats ? (
+                    <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-primary" />
+                  )}
+                </div>
+              </div>
 
               <button
                 onClick={() => setIsSettingsOpen(true)}
-                className="p-2 rounded-lg bg-muted/50 border border-primary/30 hover:border-primary/60 hover:bg-muted/70 transition-all"
+                className="p-3 rounded-lg bg-muted/70 border-2 border-primary/40 hover:border-primary/70 hover:bg-muted/90 transition-all"
                 aria-label="Open settings"
               >
                 <SettingsIcon className="w-5 h-5 text-primary" />
@@ -117,12 +142,12 @@ export function Dashboard({
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <main id="main-content" className="container mx-auto px-4 py-6" role="main">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6" role="region" aria-label="Error statistics">
           <StatCard
             title="Total Errors"
             value={stats?.totalErrors || 0}
-            icon={<Activity className="w-8 h-8" />}
+            icon={<Activity className="w-8 h-8 text-white" />}
             color="primary"
           />
           <StatCard
@@ -152,7 +177,7 @@ export function Dashboard({
             <ErrorFeed errors={errors as never[]} aiStreaming={aiStreaming} />
           </div>
           <div className="h-[calc(100vh-300px)] min-h-[500px]">
-            <CategoryChart stats={stats as never} />
+            <CategoryChart stats={stats as never} isLoading={isLoadingStats} />
           </div>
         </div>
       </main>
@@ -189,22 +214,24 @@ function StatCard({
   color: string
 }) {
   const colorClasses: Record<string, string> = {
-    primary: "from-primary/20 to-primary/5 border-primary/40 text-primary glow-primary",
-    secondary: "from-secondary/20 to-secondary/5 border-secondary/40 text-secondary glow-secondary",
-    accent: "from-accent/20 to-accent/5 border-accent/40 text-accent glow-accent",
-    warning: "from-warning/20 to-warning/5 border-warning/40 text-warning",
+    primary: "from-secondary/30 to-primary/10 border-primary/50 text-primary glow-primary",
+    secondary: "from-secondary/30 to-secondary/10 border-secondary/50 text-secondary glow-secondary",
+    accent: "from-accent/30 to-accent/10 border-accent/50 text-accent glow-accent",
+    warning: "from-warning/30 to-warning/10 border-warning/50 text-warning",
   }
 
   return (
     <div
-      className={`glass-card rounded-xl p-6 border bg-gradient-to-br ${colorClasses[color]} hover:scale-105 transition-transform duration-300`}
+      className={`glass-card rounded-xl p-6 border-2 bg-linear-to-br ${colorClasses[color]} hover:scale-105 transition-transform duration-300`}
+      role="article"
+      aria-label={`${title}: ${value}`}
     >
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <p className="text-sm text-accent uppercase tracking-wider mb-2">{title}</p>
-          <p className="text-3xl font-bold gradient-text">{value}</p>
+          <p className="text-sm font-semibold text-white/80 uppercase tracking-wider mb-2">{title}</p>
+          <p className="text-4xl font-bold gradient-text" aria-label={`${value}`}>{value}</p>
         </div>
-        <div className={`p-3 rounded-xl bg-gradient-to-br ${colorClasses[color]}`}>{icon}</div>
+        <div className={`p-4 rounded-xl bg-linear-to-br ${colorClasses[color]}`} aria-hidden="true">{icon}</div>
       </div>
     </div>
   )

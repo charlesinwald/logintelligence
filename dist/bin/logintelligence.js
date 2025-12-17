@@ -6,7 +6,7 @@ import { existsSync } from 'fs';
 import { isConfigured, getApiKey } from '../lib/config.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const rootDir = join(__dirname, '..');
+const rootDir = join(__dirname, '..', '..');
 // Parse command line arguments
 const args = process.argv.slice(2);
 const command = args[0];
@@ -14,7 +14,8 @@ async function main() {
     // Handle commands
     if (command === 'setup') {
         // Run setup script
-        await import('./setup.js');
+        const { setup } = await import('./setup.js');
+        await setup();
         process.exit(0);
     }
     if (command === 'version' || command === '-v' || command === '--version') {
@@ -47,7 +48,7 @@ Examples:
   your-app 2>&1 | logintelligence ingest --source my-app
 
 For more information, visit:
-https://github.com/yourusername/logintelligence
+https://github.com/charlesinwald/logintelligence
 `);
         process.exit(0);
     }
@@ -92,14 +93,16 @@ https://github.com/yourusername/logintelligence
     // Set environment variables from config
     process.env.GEMINI_API_KEY = getApiKey() || '';
     process.env.NODE_ENV = process.env.NODE_ENV || 'production';
-    process.env.PORT = process.env.PORT || '3000';
+    process.env.PORT = process.env.PORT || '7878';
     // Ensure database directory exists
     const dbDir = join(rootDir, 'data');
     if (!existsSync(dbDir)) {
         await import('fs').then(fs => fs.promises.mkdir(dbDir, { recursive: true }));
     }
-    // Initialize database if needed
+    // Set database path environment variable
     const dbPath = join(dbDir, 'errors.db');
+    process.env.DB_PATH = dbPath;
+    // Initialize database if needed
     if (!existsSync(dbPath)) {
         console.log('📦 Initializing database...');
         await import(join(rootDir, 'dist/server/db/index.js'));

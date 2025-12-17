@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Settings as SettingsIcon, RefreshCw } from 'lucide-react';
 import type { AppConfig } from '../hooks/useConfig';
 
@@ -21,6 +21,40 @@ export function Settings({
 }: SettingsProps) {
   const [serverUrl, setServerUrl] = useState(config.serverUrl);
   const [port, setPort] = useState(config.port.toString());
+  const modalRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Handle ESC key to close modal
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscKey);
+      // Focus the close button when modal opens
+      setTimeout(() => closeButtonRef.current?.focus(), 100);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [isOpen, onClose]);
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -39,23 +73,34 @@ export function Settings({
   const handleReset = () => {
     onResetConfig();
     setServerUrl('localhost');
-    setPort('3000');
+    setPort('7878');
     onReconnect();
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="glass-card rounded-2xl border border-primary/30 p-8 max-w-md w-full mx-4 shadow-2xl">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settings-title"
+    >
+      <div
+        ref={modalRef}
+        className="glass-card rounded-2xl border border-primary/30 p-8 max-w-md w-full mx-4 shadow-2xl animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-gradient-to-br from-primary/30 to-secondary/30 glow-primary">
               <SettingsIcon className="w-6 h-6 text-primary" />
             </div>
-            <h2 className="text-2xl font-bold gradient-text">Settings</h2>
+            <h2 id="settings-title" className="text-2xl font-bold gradient-text">Settings</h2>
           </div>
           <button
+            ref={closeButtonRef}
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-muted/50 transition-colors"
+            className="p-2 rounded-lg hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/60"
             aria-label="Close settings"
           >
             <X className="w-5 h-5" />
@@ -91,7 +136,7 @@ export function Settings({
               max="65535"
               value={port}
               onChange={(e) => setPort(e.target.value)}
-              placeholder="3000"
+              placeholder="7878"
               className="w-full bg-muted/50 border border-primary/30 rounded-lg px-4 py-3 text-sm font-medium backdrop-blur-sm hover:border-primary/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
             />
             <p className="mt-1 text-xs text-muted-foreground">

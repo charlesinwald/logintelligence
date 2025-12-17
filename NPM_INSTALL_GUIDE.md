@@ -360,8 +360,8 @@ startServer();
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/logintelligence/issues)
-- **Documentation**: [Full README](https://github.com/yourusername/logintelligence)
+- **Issues**: [GitHub Issues](https://github.com/charlesinwald/logintelligence/issues)
+- **Documentation**: [Full README](https://github.com/charlesinwald/logintelligence)
 - **npm Package**: [npmjs.com/package/logintelligence](https://www.npmjs.com/package/logintelligence)
 
 ## Quick Reference

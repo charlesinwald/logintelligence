@@ -36,12 +36,12 @@ Edit `package.json` and update these fields:
   "author": "Your Name <your.email@example.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/logintelligence.git"
+    "url": "https://github.com/charlesinwald/logintelligence.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/logintelligence/issues"
+    "url": "https://github.com/charlesinwald/logintelligence/issues"
   },
-  "homepage": "https://github.com/yourusername/logintelligence#readme"
+  "homepage": "https://github.com/charlesinwald/logintelligence#readme"
 }
 ```
 

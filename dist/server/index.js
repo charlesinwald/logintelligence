@@ -22,7 +22,7 @@ const io = new SocketIOServer(httpServer, {
         methods: ['GET', 'POST']
     }
 });
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 7878;
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); // Support larger error batches
@@ -48,7 +48,7 @@ app.get('/health', (req, res) => {
 app.use('/api/errors', errorRoutes);
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
-    const clientDistPath = join(__dirname, '../client/dist');
+    const clientDistPath = join(__dirname, '../../client/dist');
     // Serve static assets
     app.use(express.static(clientDistPath));
     // Serve index.html for all non-API routes

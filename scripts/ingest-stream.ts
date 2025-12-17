@@ -15,7 +15,7 @@ interface IngestOptions {
 
 const defaultOptions: IngestOptions = {
   serverUrl: 'localhost',
-  port: 3000,
+  port: 7878,
   source: 'cli-stream',
   severity: 'medium',
   environment: process.env.NODE_ENV || 'development',
@@ -88,7 +88,7 @@ Usage:
 
 Options:
   -s, --server <url>        Server URL (default: localhost)
-  -p, --port <port>         Server port (default: 3000)
+  -p, --port <port>         Server port (default: 7878)
   --source <name>           Source identifier (default: cli-stream)
   --severity <level>        Default severity: critical|high|medium|low
                            (default: medium)
@@ -106,7 +106,7 @@ Examples:
   python script.py 2>&1 | logintelligence ingest --source python-app --severity high
 
   # Custom server location
-  npm test 2>&1 | logintelligence ingest --server 192.168.1.100 --port 3000
+  npm test 2>&1 | logintelligence ingest --server 192.168.1.100 --port 7878
 
   # Monitor build output
   npm run build 2>&1 | logintelligence ingest --source build-process
