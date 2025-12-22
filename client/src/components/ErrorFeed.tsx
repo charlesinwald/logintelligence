@@ -142,7 +142,7 @@ function ErrorCard({
     <div
       className={`border rounded-xl cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
         isExpanded
-          ? "bg-gradient-to-br from-muted/60 to-muted/30 border-primary/60 glow-primary shadow-xl"
+          ? "bg-foreground border-primary/60 glow-primary shadow-xl"
           : "glass-card hover:border-primary/40 hover:bg-muted/40"
       }`}
       onClick={onToggle}
@@ -221,11 +221,11 @@ function ErrorCard({
           <div className="mt-6 pt-6 border-t-2 border-border/50 space-y-5 animate-in fade-in slide-in-from-top-2 duration-300">
             {error.ai_hypothesis && (
               <div className="p-5 rounded-lg bg-primary/20 border-2 border-primary/40 shadow-lg">
-                <h4 className="text-base font-bold text-primary uppercase tracking-wider mb-3 flex items-center gap-2">
+                <h4 className="text-base font-bold text-card uppercase tracking-wider mb-3 flex items-center gap-2">
                   <Activity className="w-5 h-5" />
                   AI Analysis
                 </h4>
-                <p className="text-base text-foreground/90 leading-relaxed">{error.ai_hypothesis}</p>
+                <p className="text-base text-card/80 leading-relaxed">{error.ai_hypothesis}</p>
               </div>
             )}
 
@@ -251,14 +251,14 @@ function ErrorCard({
                       e.stopPropagation()
                       copyToClipboard(error.stack_trace!, setCopiedStack)
                     }}
-                    className="p-2 rounded-lg hover:bg-background/40 transition-colors border border-border/50 focus:outline-none focus:ring-2 focus:ring-destructive/60"
+                    className="p-2 rounded-lg transition-colors border border-border/50 focus:outline-none focus:ring-2 focus:ring-destructive/60 cursor-pointer hover:bg-background/40 !hover:text-destructive"
                     aria-label="Copy stack trace"
                     title="Copy stack trace"
                   >
                     {copiedStack ? (
                       <Check className="w-4 h-4 text-success" />
                     ) : (
-                      <Copy className="w-4 h-4 text-muted-foreground" />
+                      <Copy className="w-4 h-4 text-muted-foreground !hover:text-destructive" />
                     )}
                   </button>
                 </div>
@@ -269,9 +269,9 @@ function ErrorCard({
             )}
 
             {error.metadata && Object.keys(error.metadata).length > 0 && (
-              <div className="p-5 rounded-lg bg-muted/40 border-2 border-border/60 shadow-lg">
+              <div className="p-5 rounded-lg bg-muted/10 border-2 border-border/60 shadow-lg">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-base font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                  <h4 className="text-base font-bold text-card uppercase tracking-wider flex items-center gap-2">
                     <Hash className="w-5 h-5" />
                     Metadata
                   </h4>
@@ -280,14 +280,14 @@ function ErrorCard({
                       e.stopPropagation()
                       copyToClipboard(JSON.stringify(error.metadata, null, 2), setCopiedMetadata)
                     }}
-                    className="p-2 rounded-lg hover:bg-background/40 transition-colors border border-border/50 focus:outline-none focus:ring-2 focus:ring-primary/60"
+                    className="p-2 rounded-lg hover:bg-background/40 transition-colors border border-border/50 focus:outline-none focus:ring-2 focus:ring-primary/60 cursor-pointer !hover:text-primary"
                     aria-label="Copy metadata JSON"
                     title="Copy metadata JSON"
                   >
                     {copiedMetadata ? (
                       <Check className="w-4 h-4 text-success" />
                     ) : (
-                      <Copy className="w-4 h-4 text-muted-foreground" />
+                      <Copy className="w-4 h-4 text-muted-foreground !hover:text-primary" />
                     )}
                   </button>
                 </div>
@@ -301,15 +301,15 @@ function ErrorCard({
               {error.environment && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border/40">
                   <Hash className="w-4 h-4 text-accent" />
-                  <span className="text-muted-foreground font-medium">Environment:</span>
-                  <span className="text-foreground font-semibold">{error.environment}</span>
+                  <span className="text-muted/80 font-medium">Environment:</span>
+                  <span className="text-muted font-semibold">{error.environment}</span>
                 </div>
               )}
               {error.user_id && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border/40">
                   <User className="w-4 h-4 text-accent" />
-                  <span className="text-muted-foreground font-medium">User ID:</span>
-                  <span className="text-foreground font-semibold">{error.user_id}</span>
+                  <span className="text-muted/80 font-medium">User ID:</span>
+                  <span className="text-muted font-semibold">{error.user_id}</span>
                 </div>
               )}
             </div>

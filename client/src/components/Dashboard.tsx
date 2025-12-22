@@ -8,15 +8,12 @@ import { Settings } from "./Settings"
 import { Activity, BarChart3, Folder, Zap, Wifi, WifiOff, Settings as SettingsIcon, Loader2, ChevronDown } from "lucide-react"
 import { DottedSurface } from "./ui/dotted-surface"
 import type { AppConfig } from "../hooks/useConfig"
+import type { ErrorStatistics } from "../hooks/useSocket"
 
 interface DashboardProps {
   connected: boolean
   errors: unknown[]
-  stats?: {
-    totalErrors?: number
-    errorRate?: number
-    categories?: unknown[]
-  }
+  stats: ErrorStatistics | null
   aiStreaming?: Record<string, string>
   spikes: unknown[]
   onClearSpikes: () => void
@@ -177,7 +174,7 @@ export function Dashboard({
             <ErrorFeed errors={errors as never[]} aiStreaming={aiStreaming} />
           </div>
           <div className="h-[calc(100vh-300px)] min-h-[500px]">
-            <CategoryChart stats={stats as never} isLoading={isLoadingStats} />
+            <CategoryChart stats={stats} isLoading={isLoadingStats} />
           </div>
         </div>
       </main>

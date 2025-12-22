@@ -213,7 +213,7 @@ export function getErrorStatistics(timeWindowMs: number = 3600000): ErrorStatist
   const totalErrors = timeSeries.reduce((sum, stat) => sum + stat.total_errors, 0);
   const errorRate = totalErrors / (timeWindowMs / 60000); // Errors per minute
 
-  return {
+  const stats = {
     totalErrors,
     errorRate: Math.round(errorRate * 10) / 10,
     categories: categories.map(c => ({
@@ -228,6 +228,13 @@ export function getErrorStatistics(timeWindowMs: number = 3600000): ErrorStatist
       category: stat.category
     }))
   };
+
+  // Debug logging
+  console.log('[getErrorStatistics] Categories type:', Array.isArray(stats.categories) ? 'Array' : typeof stats.categories);
+  console.log('[getErrorStatistics] Categories:', JSON.stringify(stats.categories));
+  console.log('[getErrorStatistics] TimeSeries type:', Array.isArray(stats.timeSeries) ? 'Array' : typeof stats.timeSeries);
+
+  return stats;
 }
 
 export default {

@@ -2,18 +2,10 @@
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts"
 import { BarChart3, Loader2 } from "lucide-react"
-
-interface CategoryData {
-  category: string
-  count: number
-}
-
-interface StatsData {
-  categories?: CategoryData[]
-}
+import type { ErrorStatistics } from "../hooks/useSocket"
 
 interface CategoryChartProps {
-  stats?: StatsData
+  stats?: ErrorStatistics | null
   isLoading?: boolean
 }
 

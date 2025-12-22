@@ -59,6 +59,17 @@ export interface UseSocketReturn {
 }
 
 /**
+ * Normalize stats data to ensure arrays aren't stringified
+ */
+function normalizeStats(stats: any): ErrorStatistics {
+  return {
+    ...stats,
+    categories: typeof stats.categories === 'string' ? JSON.parse(stats.categories) : (stats.categories || []),
+    timeSeries: typeof stats.timeSeries === 'string' ? JSON.parse(stats.timeSeries) : (stats.timeSeries || [])
+  };
+}
+
+/**
  * Custom hook for managing Socket.io connection and real-time events
  */
 export function useSocket(socketUrl: string): UseSocketReturn {
@@ -97,10 +108,10 @@ export function useSocket(socketUrl: string): UseSocketReturn {
     });
 
     // Initial data load
-    socket.on('data:initial', ({ errors: initialErrors, stats: initialStats }: { errors: ErrorRecord[]; stats: ErrorStatistics }) => {
+    socket.on('data:initial', ({ errors: initialErrors, stats: initialStats }: { errors: ErrorRecord[]; stats: any }) => {
       console.log(`Loaded ${initialErrors.length} initial errors`);
       setErrors(initialErrors);
-      setStats(initialStats);
+      setStats(normalizeStats(initialStats));
     });
 
     // New error received
@@ -157,12 +168,12 @@ export function useSocket(socketUrl: string): UseSocketReturn {
     });
 
     // Stats updates
-    socket.on('data:stats_update', ({ stats: updatedStats }: { stats: ErrorStatistics }) => {
-      setStats(updatedStats);
+    socket.on('data:stats_update', ({ stats: updatedStats }: { stats: any }) => {
+      setStats(normalizeStats(updatedStats));
     });
 
-    socket.on('data:stats', ({ stats: updatedStats }: { stats: ErrorStatistics }) => {
-      setStats(updatedStats);
+    socket.on('data:stats', ({ stats: updatedStats }: { stats: any }) => {
+      setStats(normalizeStats(updatedStats));
     });
 
     // Server errors

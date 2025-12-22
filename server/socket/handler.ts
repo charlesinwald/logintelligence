@@ -55,6 +55,8 @@ export function initializeSocketHandlers(io: SocketIOServer): void {
     socket.on('request:stats', async ({ timeWindow = 3600000 }: StatsRequestPayload = {}) => {
       try {
         const stats = getErrorStatistics(timeWindow);
+        console.log('[socket:request:stats] Emitting stats, categories type:', Array.isArray(stats.categories) ? 'Array' : typeof stats.categories);
+        console.log('[socket:request:stats] Categories value:', JSON.stringify(stats.categories));
         socket.emit('data:stats', { stats, timestamp: Date.now() });
       } catch (error) {
         console.error('Failed to send stats:', error);
