@@ -1,6 +1,6 @@
 {
   "name": "logintelligence",
-  "version": "1.0.9",
+  "version": "1.0.11",
   "description": "Real-time LogIntelligence dashboard with AI-powered classification and pattern detection using Gemini",
   "type": "module",
   "main": "dist/server/index.js",
