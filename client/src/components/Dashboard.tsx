@@ -10,12 +10,6 @@ import { DottedSurface } from "./ui/dotted-surface"
 import type { AppConfig } from "../hooks/useConfig"
 import type { ErrorStatistics } from "../hooks/useSocket"
 
-const TIME_WINDOWS: Record<string, number> = {
-  "15m": 900000,
-  "1h": 3600000,
-  "24h": 86400000,
-}
-
 interface DashboardProps {
   connected: boolean
   errors: unknown[]
@@ -28,6 +22,12 @@ interface DashboardProps {
   onUpdateConfig: (updates: Partial<AppConfig>) => void
   onResetConfig: () => void
   onReconnect: () => void
+}
+
+const timeWindows: Record<string, number> = {
+  "15m": 900000,
+  "1h": 3600000,
+  "24h": 86400000,
 }
 
 export function Dashboard({
@@ -49,7 +49,10 @@ export function Dashboard({
 
   useEffect(() => {
     setIsLoadingStats(true)
-    requestStats(TIME_WINDOWS[timeWindow])
+    requestStats(timeWindows[timeWindow])
+    // Reset loading state after a short delay as fallback
+    const timer = setTimeout(() => setIsLoadingStats(false), 2000)
+    return () => clearTimeout(timer)
   }, [timeWindow, requestStats])
 
   // Clear loading state when stats are received
