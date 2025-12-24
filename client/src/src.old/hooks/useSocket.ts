@@ -76,11 +76,10 @@ function computeStatsFromErrors(errors: ErrorRecord[], timeWindowMs: number = 36
   const now = Date.now();
   const startTime = now - timeWindowMs;
   
-  // Filter errors within time window
-  const errorsInWindow = errors.filter(err => err.timestamp >= startTime);
+  // Filter errors within time window (or all errors if they're outside the window)
+  const errorsInWindow = errors.filter(err => err.timestamp >= startTime || errors.length > 0 && errors.every(e => e.timestamp > now));
   
-  // If no errors in window but errors exist, they're likely outside the window (e.g., test data with future timestamps)
-  // In that case, use all errors to show categories
+  // Use all errors if they're all outside the window (likely test data with future timestamps)
   const errorsToUse = errorsInWindow.length > 0 ? errorsInWindow : errors;
   
   // Group by category
@@ -125,12 +124,6 @@ export function useSocket(socketUrl: string): UseSocketReturn {
   const [aiStreaming, setAiStreaming] = useState<Record<number, string>>({});
   const [spikes, setSpikes] = useState<SpikeAlert[]>([]);
   const socketRef = useRef<Socket | null>(null);
-  const errorsRef = useRef<ErrorRecord[]>([]);
-  
-  // Keep errorsRef in sync with errors state
-  useEffect(() => {
-    errorsRef.current = errors;
-  }, [errors]);
 
   useEffect(() => {
     // Initialize socket connection
@@ -163,15 +156,7 @@ export function useSocket(socketUrl: string): UseSocketReturn {
     socket.on('data:initial', ({ errors: initialErrors, stats: initialStats }: { errors: ErrorRecord[]; stats: any }) => {
       console.log(`Loaded ${initialErrors.length} initial errors`);
       setErrors(initialErrors);
-      const normalized = normalizeStats(initialStats);
-      // If stats are empty but we have errors, compute stats from errors array
-      if ((normalized.totalErrors === 0 || normalized.categories.length === 0) && initialErrors.length > 0) {
-        const computedStats = computeStatsFromErrors(initialErrors, 86400000); // Use 24h window for fallback
-        console.log('[useSocket] Initial stats empty, computing from errors array:', computedStats);
-        setStats(computedStats);
-      } else {
-        setStats(normalized);
-      }
+      setStats(normalizeStats(initialStats));
     });
 
     // New error received
@@ -180,7 +165,7 @@ export function useSocket(socketUrl: string): UseSocketReturn {
     });
 
     // AI streaming chunks
-    socket.on('error:ai_stream', ({ errorId, fullText }: { errorId: number; fullText: string }) => {
+    socket.on('error:ai_stream', ({ errorId, chunk, fullText }: { errorId: number; chunk: string; fullText: string }) => {
       setAiStreaming(prev => ({
         ...prev,
         [errorId]: fullText
@@ -229,29 +214,11 @@ export function useSocket(socketUrl: string): UseSocketReturn {
 
     // Stats updates
     socket.on('data:stats_update', ({ stats: updatedStats }: { stats: any }) => {
-      const normalized = normalizeStats(updatedStats);
-      // If stats are empty but we have errors, compute stats from errors array
-      const currentErrors = errorsRef.current;
-      if ((normalized.totalErrors === 0 || normalized.categories.length === 0) && currentErrors.length > 0) {
-        const computedStats = computeStatsFromErrors(currentErrors, 86400000); // Use 24h window for fallback
-        console.log('[useSocket] Server stats empty, computing from errors array:', computedStats);
-        setStats(computedStats);
-      } else {
-        setStats(normalized);
-      }
+      setStats(normalizeStats(updatedStats));
     });
 
     socket.on('data:stats', ({ stats: updatedStats }: { stats: any }) => {
-      const normalized = normalizeStats(updatedStats);
-      // If stats are empty but we have errors, compute stats from errors array
-      const currentErrors = errorsRef.current;
-      if ((normalized.totalErrors === 0 || normalized.categories.length === 0) && currentErrors.length > 0) {
-        const computedStats = computeStatsFromErrors(currentErrors, 86400000); // Use 24h window for fallback
-        console.log('[useSocket] Server stats empty, computing from errors array:', computedStats);
-        setStats(computedStats);
-      } else {
-        setStats(normalized);
-      }
+      setStats(normalizeStats(updatedStats));
     });
 
     // Server errors

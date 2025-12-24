@@ -66,5 +66,20 @@ export declare function updateErrorWithAI(errorId: number, aiData: AIData): Data
 export declare function getRecentErrors(limit?: number): ErrorRecord[];
 export declare function getCategoryStats(timeWindowMs?: number): CategoryStat[];
 export declare function getErrorsInTimeRange(startTime: number, endTime: number): ErrorRecord[];
+export interface LogSource {
+    source_name: string;
+}
+/**
+ * Track a log source for a user
+ */
+export declare function trackLogSource(userId: number, sourceName: string): void;
+/**
+ * Get all log sources for a user
+ */
+export declare function getLogSourcesByUserId(userId: number): string[];
+/**
+ * Get log source count for a user
+ */
+export declare function getLogSourceCount(userId: number): number;
 export default db;
 //# sourceMappingURL=index.d.ts.map

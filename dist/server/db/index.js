@@ -13,6 +13,18 @@ db.pragma('journal_mode = WAL'); // Better concurrency
 // Initialize schema
 const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf-8');
 db.exec(schema);
+// Run migrations
+const migrationPath = join(__dirname, 'migrations', '001_add_auth_tables.sql');
+try {
+    const migration = readFileSync(migrationPath, 'utf-8');
+    db.exec(migration);
+    console.log('✓ Migrations applied');
+}
+catch (error) {
+    if (error.code !== 'ENOENT') {
+        console.log('✓ Migrations already applied or not needed');
+    }
+}
 console.log('✓ Database initialized at:', DB_PATH);
 // Prepared statements for common operations
 export const statements = {
@@ -120,6 +132,42 @@ export function getCategoryStats(timeWindowMs = 3600000) {
 }
 export function getErrorsInTimeRange(startTime, endTime) {
     return statements.getErrorsInRange.all(startTime, endTime);
+}
+// Log Sources - helper functions for tracking user log sources
+const logSourceStatements = {
+    insertLogSource: db.prepare(`
+    INSERT OR IGNORE INTO log_sources (user_id, source_name)
+    VALUES (?, ?)
+  `),
+    getLogSourcesByUserId: db.prepare(`
+    SELECT source_name FROM log_sources
+    WHERE user_id = ?
+    ORDER BY created_at ASC
+  `),
+    getLogSourceCount: db.prepare(`
+    SELECT COUNT(*) as count FROM log_sources
+    WHERE user_id = ?
+  `)
+};
+/**
+ * Track a log source for a user
+ */
+export function trackLogSource(userId, sourceName) {
+    logSourceStatements.insertLogSource.run(userId, sourceName);
+}
+/**
+ * Get all log sources for a user
+ */
+export function getLogSourcesByUserId(userId) {
+    const sources = logSourceStatements.getLogSourcesByUserId.all(userId);
+    return sources.map(s => s.source_name);
+}
+/**
+ * Get log source count for a user
+ */
+export function getLogSourceCount(userId) {
+    const result = logSourceStatements.getLogSourceCount.get(userId);
+    return result.count;
 }
 export default db;
 //# sourceMappingURL=index.js.map

@@ -88,6 +88,18 @@ db.pragma('journal_mode = WAL'); // Better concurrency
 const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf-8');
 db.exec(schema);
 
+// Run migrations
+const migrationPath = join(__dirname, 'migrations', '001_add_auth_tables.sql');
+try {
+  const migration = readFileSync(migrationPath, 'utf-8');
+  db.exec(migration);
+  console.log('✓ Migrations applied');
+} catch (error: any) {
+  if (error.code !== 'ENOENT') {
+    console.log('✓ Migrations already applied or not needed');
+  }
+}
+
 console.log('✓ Database initialized at:', DB_PATH);
 
 // Prepared statements for common operations
@@ -255,6 +267,52 @@ export function getCategoryStats(timeWindowMs: number = 3600000): CategoryStat[]
 
 export function getErrorsInTimeRange(startTime: number, endTime: number): ErrorRecord[] {
   return statements.getErrorsInRange.all(startTime, endTime) as ErrorRecord[];
+}
+
+// Log Sources - helper functions for tracking user log sources
+const logSourceStatements = {
+  insertLogSource: db.prepare<[number, string]>(`
+    INSERT OR IGNORE INTO log_sources (user_id, source_name)
+    VALUES (?, ?)
+  `),
+
+  getLogSourcesByUserId: db.prepare<[number]>(`
+    SELECT source_name FROM log_sources
+    WHERE user_id = ?
+    ORDER BY created_at ASC
+  `),
+
+  getLogSourceCount: db.prepare<[number]>(`
+    SELECT COUNT(*) as count FROM log_sources
+    WHERE user_id = ?
+  `)
+};
+
+export interface LogSource {
+  source_name: string;
+}
+
+/**
+ * Track a log source for a user
+ */
+export function trackLogSource(userId: number, sourceName: string): void {
+  logSourceStatements.insertLogSource.run(userId, sourceName);
+}
+
+/**
+ * Get all log sources for a user
+ */
+export function getLogSourcesByUserId(userId: number): string[] {
+  const sources = logSourceStatements.getLogSourcesByUserId.all(userId) as LogSource[];
+  return sources.map(s => s.source_name);
+}
+
+/**
+ * Get log source count for a user
+ */
+export function getLogSourceCount(userId: number): number {
+  const result = logSourceStatements.getLogSourceCount.get(userId) as { count: number };
+  return result.count;
 }
 
 export default db;
