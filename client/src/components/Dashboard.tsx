@@ -10,6 +10,12 @@ import { DottedSurface } from "./ui/dotted-surface"
 import type { AppConfig } from "../hooks/useConfig"
 import type { ErrorStatistics } from "../hooks/useSocket"
 
+const TIME_WINDOWS: Record<string, number> = {
+  "15m": 900000,
+  "1h": 3600000,
+  "24h": 86400000,
+}
+
 interface DashboardProps {
   connected: boolean
   errors: unknown[]
@@ -41,19 +47,17 @@ export function Dashboard({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isLoadingStats, setIsLoadingStats] = useState(false)
 
-  const timeWindows: Record<string, number> = {
-    "15m": 900000,
-    "1h": 3600000,
-    "24h": 86400000,
-  }
-
   useEffect(() => {
     setIsLoadingStats(true)
-    requestStats(timeWindows[timeWindow])
-    // Reset loading state after a short delay
-    const timer = setTimeout(() => setIsLoadingStats(false), 500)
-    return () => clearTimeout(timer)
-  }, [timeWindow, requestStats, timeWindows])
+    requestStats(TIME_WINDOWS[timeWindow])
+  }, [timeWindow, requestStats])
+
+  // Clear loading state when stats are received
+  useEffect(() => {
+    if (stats !== null) {
+      setIsLoadingStats(false)
+    }
+  }, [stats])
 
   const formatErrorRate = (rate: number) => {
     return rate.toFixed(2)
@@ -181,8 +185,8 @@ export function Dashboard({
 
       <footer className="glass-card border-t border-border/50 mt-8 backdrop-blur-xl">
         <div className="container mx-auto px-4 py-6">
-          <p className="text-center text-sm text-muted-foreground">
-            Built by <a href="https://charlesinwald.com" className="text-primary hover:underline">Charles Inwald</a>
+          <p className="text-center text-sm text-muted">
+            Built by <a href="https://charlesinwald.com" className="text-card/80 cursor-pointer underline">Charles Inwald</a>
           </p>
         </div>
       </footer>
