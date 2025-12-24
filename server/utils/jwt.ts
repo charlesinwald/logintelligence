@@ -20,8 +20,8 @@ export function generateAccessToken(userId: number, email: string): string {
   const payload: TokenPayload = { userId, email };
 
   return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: JWT_EXPIRES_IN
-  });
+    expiresIn: JWT_EXPIRES_IN as string
+  } as jwt.SignOptions);
 }
 
 /**
@@ -31,8 +31,8 @@ export function generateRefreshToken(userId: number, email: string): string {
   const payload: TokenPayload = { userId, email };
 
   return jwt.sign(payload, JWT_REFRESH_SECRET, {
-    expiresIn: JWT_REFRESH_EXPIRES_IN
-  });
+    expiresIn: JWT_REFRESH_EXPIRES_IN as string
+  } as jwt.SignOptions);
 }
 
 /**
