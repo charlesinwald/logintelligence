@@ -49,7 +49,7 @@ const statements = {
     SELECT * FROM users WHERE verification_token = ?
   `),
 
-  getUserByResetToken: db.prepare<[string]>(`
+  getUserByResetToken: db.prepare<[string, number]>(`
     SELECT * FROM users WHERE reset_token = ? AND reset_token_expires > ?
   `),
 
