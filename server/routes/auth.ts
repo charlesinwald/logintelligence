@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { z } from 'zod';
+import { OAuth2Client } from 'google-auth-library';
 import {
   createUser,
   getUserByEmail,
@@ -7,7 +8,7 @@ import {
   updateUser,
   emailExists
 } from '../models/User.js';
-import { createSubscription } from '../models/Subscription.js';
+import { createSubscription, getSubscriptionByUserId } from '../models/Subscription.js';
 import { hashPassword, comparePassword, validatePasswordStrength } from '../utils/password.js';
 import {
   generateAccessToken,
@@ -16,6 +17,7 @@ import {
 } from '../utils/jwt.js';
 import { authenticateUser, AuthRequest } from '../middleware/auth.js';
 import Stripe from 'stripe';
+import crypto from 'crypto';
 
 const router = express.Router();
 
@@ -24,7 +26,15 @@ const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-12-15.clover' })
   : null;
 
+// Initialize Google OAuth client
+const googleClient = process.env.GOOGLE_CLIENT_ID
+  ? new OAuth2Client()
+  : null;
+
 // Validation schemas
+const googleAuthSchema = z.object({
+  credential: z.string().min(1, 'Google credential is required')
+});
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
@@ -172,7 +182,6 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     // Get subscription
-    const { getSubscriptionByUserId } = await import('../models/Subscription.js');
     const subscription = getSubscriptionByUserId(user.id);
     if (!subscription) {
       return res.status(500).json({
@@ -217,6 +226,165 @@ router.post('/login', async (req: Request, res: Response) => {
     console.error('Login error:', error);
     res.status(500).json({
       error: 'Login failed'
+    });
+  }
+});
+
+/**
+ * POST /api/auth/google
+ * Authenticate with Google Sign-In
+ */
+router.post('/google', async (req: Request, res: Response) => {
+  console.log('[/api/auth/google] Received request');
+  try {
+    // Check if Google OAuth is configured
+    if (!googleClient || !process.env.GOOGLE_CLIENT_ID) {
+      console.error('[/api/auth/google] Google auth is not configured');
+      return res.status(503).json({
+        error: 'Google authentication is not configured'
+      });
+    }
+    console.log('[/api/auth/google] Google auth is configured');
+
+    // Validate input
+    const data = googleAuthSchema.parse(req.body);
+    console.log('[/api/auth/google] Input validated', data);
+
+    // Verify the Google ID token
+    console.log('[/api/auth/google] Verifying token with Google...');
+    const ticket = await googleClient.verifyIdToken({
+      idToken: data.credential,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+    console.log('[/api/auth/google] Token verified');
+
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      console.error('[/api/auth/google] Invalid Google token payload', payload);
+      return res.status(401).json({
+        error: 'Invalid Google token'
+      });
+    }
+    console.log('[/api/auth/google] Google token payload:', payload);
+
+    const { email, name, email_verified } = payload;
+
+    // Check if user exists
+    console.log(`[/api/auth/google] Checking for user with email: ${email}`);
+    let user = getUserByEmail(email);
+    let subscription;
+
+    if (!user) {
+      console.log('[/api/auth/google] User not found, creating new user');
+      // Create new user with a random placeholder password hash
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const passwordHash = await hashPassword(randomPassword);
+
+      user = createUser({
+        email,
+        password_hash: passwordHash,
+        name: name || undefined
+      });
+      console.log('[/api/auth/google] New user created:', user);
+
+      // Mark email as verified (Google has already verified it)
+      if (email_verified) {
+        console.log('[/api/auth/google] Marking email as verified');
+        updateUser(user.id, { email_verified: 1 });
+      }
+
+      // Create Stripe customer
+      let stripeCustomerId = `cus_local_${user.id}_${Date.now()}`;
+      if (stripe) {
+        console.log('[/api/auth/google] Creating Stripe customer');
+        try {
+          const customer = await stripe.customers.create({
+            email: user.email,
+            name: user.name || undefined,
+            metadata: {
+              user_id: user.id.toString()
+            }
+          });
+          stripeCustomerId = customer.id;
+          console.log('[/api/auth/google] Stripe customer created:', stripeCustomerId);
+        } catch (error) {
+          console.error('[/api/auth/google] Failed to create Stripe customer:', error);
+        }
+      }
+
+      // Create free subscription
+      console.log('[/api/auth/google] Creating free subscription');
+      subscription = createSubscription({
+        user_id: user.id,
+        stripe_customer_id: stripeCustomerId,
+        tier: 'free',
+        status: 'active'
+      });
+      console.log('[/api/auth/google] Free subscription created:', subscription);
+    } else {
+      console.log('[/api/auth/google] Existing user found:', user);
+      // Get existing subscription
+      subscription = getSubscriptionByUserId(user.id);
+      if (!subscription) {
+        console.warn(`[/api/auth/google] Subscription not found for user ID: ${user.id}. Assigning default free tier.`);
+        // Assign a default free tier subscription if not found
+        subscription = {
+          id: -1, // Placeholder ID
+          user_id: user.id,
+          stripe_customer_id: 'N/A', // No Stripe customer for default
+          tier: 'free',
+          status: 'active',
+          current_period_start: Date.now(),
+          current_period_end: Date.now() + (10 * 365 * 24 * 60 * 60 * 1000), // 10 years from now
+          trial_end: null,
+          created_at: Date.now(),
+          updated_at: Date.now()
+        };
+      }
+      console.log('[/api/auth/google] Existing subscription found:', subscription);
+    }
+
+    // Generate tokens
+    console.log('[/api/auth/google] Generating tokens');
+    const accessToken = generateAccessToken(user.id, user.email);
+    const refreshToken = generateRefreshToken(user.id, user.email);
+    console.log('[/api/auth/google] Tokens generated');
+
+    // Set refresh token in httpOnly cookie
+    console.log('[/api/auth/google] Setting refresh token cookie');
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+    console.log('[/api/auth/google] Authentication successful, sending response');
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name
+      },
+      subscription: {
+        tier: subscription.tier,
+        status: subscription.status,
+        trialEnd: subscription.trial_end
+      },
+      accessToken
+    });
+  } catch (error) {
+    console.error('[/api/auth/google] Google auth error:', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: error.errors
+      });
+    }
+
+    res.status(500).json({
+      error: 'Google authentication failed'
     });
   }
 });

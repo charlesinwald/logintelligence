@@ -15,6 +15,11 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const app = express();
+// Set COOP header to allow Google sign-in popups
+app.use((_req, res, next) => {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+    next();
+});
 const httpServer = createServer(app);
 const io = new SocketIOServer(httpServer, {
     cors: {

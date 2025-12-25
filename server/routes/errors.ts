@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { Server as SocketIOServer } from 'socket.io';
-import { insertError, updateErrorWithAI, getRecentErrors, getErrorsInTimeRange, type ErrorData } from '../db/index.js';
+import { insertError, updateErrorWithAI, getRecentErrors, getErrorsInTimeRange, clearAllErrors as dbClearAllErrors, type ErrorData } from '../db/index.js';
 import { analyzeErrorStreaming } from '../services/ai.js';
 import { trackErrorPattern, detectSpikes, findSimilarErrors, getErrorStatistics, type SpikeDetection } from '../services/patterns.js';
 
@@ -261,6 +261,33 @@ router.get('/range/:start/:end', (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch errors'
+    });
+  }
+});
+
+/**
+ * DELETE /api/errors
+ * Clear all errors from the database
+ */
+router.delete('/', (req: RequestWithIO, res: Response) => {
+  const io = req.app.get('io');
+
+  try {
+    // Clear all errors from the database
+    dbClearAllErrors();
+
+    // Notify all connected clients to clear their errors
+    io.emit('errors:cleared');
+
+    res.json({
+      success: true,
+      message: 'All errors cleared successfully'
+    });
+  } catch (error) {
+    console.error('Failed to clear errors:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to clear errors'
     });
   }
 });

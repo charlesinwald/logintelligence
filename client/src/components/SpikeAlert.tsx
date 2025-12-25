@@ -12,7 +12,7 @@ interface SpikeData {
 
 interface SpikeAlertProps {
   spikes: SpikeData[]
-  onClear?: () => void
+  onClear?: (index: number) => void
 }
 
 export function SpikeAlert({ spikes, onClear }: SpikeAlertProps) {
@@ -47,12 +47,12 @@ export function SpikeAlert({ spikes, onClear }: SpikeAlertProps) {
                 <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
                   <div className="flex items-center gap-2 mb-1">
                     <Activity className="w-3 h-3 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground uppercase tracking-wide">Source</span>
+                    <span className="text-xs text-muted uppercase tracking-wide">Source</span>
                   </div>
-                  <span className="text-sm font-bold text-foreground">{spike.source}</span>
+                  <span className="text-sm font-bold text-card">{spike.source}</span>
                 </div>
 
-                <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
+                <div className="p-3 rounded-lg bg-muted/70 border border-border/50">
                   <div className="flex items-center gap-2 mb-1">
                     <Activity className="w-3 h-3 text-muted-foreground" />
                     <span className="text-xs text-muted-foreground uppercase tracking-wide">Category</span>
@@ -68,10 +68,10 @@ export function SpikeAlert({ spikes, onClear }: SpikeAlertProps) {
                   <span className="text-sm font-bold text-destructive">{spike.currentRate} errors</span>
                 </div>
 
-                <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
+                <div className="p-3 rounded-lg bg-muted/70 border border-border/50">
                   <div className="flex items-center gap-2 mb-1">
-                    <Activity className="w-3 h-3 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground uppercase tracking-wide">Baseline</span>
+                    <Activity className="w-3 h-3 text-black" />
+                    <span className="text-xs text-black uppercase tracking-wide">Baseline</span>
                   </div>
                   <span className="text-sm font-bold text-foreground">{spike.averageRate} errors</span>
                 </div>
@@ -82,9 +82,9 @@ export function SpikeAlert({ spikes, onClear }: SpikeAlertProps) {
           <button
             onClick={(e) => {
               e.stopPropagation()
-              onClear?.()
+              onClear?.(index)
             }}
-            className="p-2 rounded-lg bg-muted/30 hover:bg-muted/50 border border-border/50 hover:border-destructive/50 transition-all ml-4"
+            className="cursor-pointer p-2 rounded-lg bg-muted/30 hover:bg-muted/50 border border-border/50 hover:border-destructive/50 transition-all ml-4"
             aria-label="Dismiss alert"
           >
             <X className="w-4 h-4 text-muted-foreground hover:text-destructive transition-colors" />

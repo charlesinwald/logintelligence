@@ -81,5 +81,9 @@ export declare function getLogSourcesByUserId(userId: number): string[];
  * Get log source count for a user
  */
 export declare function getLogSourceCount(userId: number): number;
+/**
+ * Clear all errors from the database
+ */
+export declare function clearAllErrors(): void;
 export default db;
 //# sourceMappingURL=index.d.ts.map

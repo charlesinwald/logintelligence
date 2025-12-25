@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { AlertCircle, Activity, Clock, User, Hash, ChevronDown, X, ChevronUp, Copy, Check } from "lucide-react"
+import { AlertCircle, Activity, Clock, User, Hash, ChevronDown, X, ChevronUp, Copy, Check, Trash2 } from "lucide-react"
 
 interface ErrorData {
   id: string
@@ -24,16 +24,35 @@ interface ErrorData {
 interface ErrorFeedProps {
   errors: ErrorData[]
   aiStreaming?: Record<string, string>
+  onClearErrors?: () => Promise<void>
+  onHideError?: (id: number) => void
 }
 
-export function ErrorFeed({ errors, aiStreaming = {} }: ErrorFeedProps) {
+export function ErrorFeed({ errors, aiStreaming = {}, onClearErrors, onHideError }: ErrorFeedProps) {
   const [expandedError, setExpandedError] = useState<string | null>(null)
   const [filter, setFilter] = useState("all")
+  const [showClearConfirmation, setShowClearConfirmation] = useState(false)
+  const [isClearing, setIsClearing] = useState(false)
 
   const filteredErrors = errors.filter((err) => {
     if (filter === "all") return true
     return (err.ai_severity || err.severity) === filter
   })
+
+  const handleClearErrors = async () => {
+    if (!onClearErrors) return
+
+    setIsClearing(true)
+    try {
+      await onClearErrors()
+    } catch (error) {
+      console.error('Failed to clear errors:', error)
+      alert('Failed to clear errors. Please try again.')
+    } finally {
+      setIsClearing(false)
+      setShowClearConfirmation(false)
+    }
+  }
 
   return (
     <div className="glass-card h-full flex flex-col rounded-xl overflow-hidden neon-border" role="region" aria-label="Error feed">
@@ -47,22 +66,34 @@ export function ErrorFeed({ errors, aiStreaming = {} }: ErrorFeedProps) {
             <p className="text-sm text-muted-foreground">Real-time monitoring</p>
           </div>
         </div>
-        <div className="relative">
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="appearance-none bg-muted/70 border-2 border-primary/40 rounded-lg pl-5 pr-12 py-2.5 text-base font-semibold backdrop-blur-sm hover:border-primary/70 hover:bg-muted/90 transition-all focus:outline-none focus:ring-2 focus:ring-primary/60 cursor-pointer"
-            aria-label="Filter by severity"
-          >
-            <option value="all">All Severities</option>
-            <option value="critical">Critical</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-            <ChevronDown className="w-5 h-5 text-primary" />
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="appearance-none bg-muted/70 border-2 border-primary/40 rounded-lg pl-5 pr-12 py-2.5 text-base font-semibold backdrop-blur-sm hover:border-primary/70 hover:bg-muted/90 transition-all focus:outline-none focus:ring-2 focus:ring-primary/60 cursor-pointer"
+              aria-label="Filter by severity"
+            >
+              <option value="all">All Severities</option>
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+              <ChevronDown className="w-5 h-5 text-primary" />
+            </div>
           </div>
+          {onClearErrors && errors.length > 0 && (
+            <button
+              onClick={() => setShowClearConfirmation(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-destructive/20 border-2 border-destructive/40 rounded-lg hover:bg-destructive/30 hover:border-destructive/60 transition-all transition-colors focus:outline-none focus:ring-2 focus:ring-destructive/60"
+              aria-label="Clear all errors"
+            >
+              <Trash2 className="w-5 h-5 text-destructive" />
+              <span className="text-base font-semibold text-destructive">Clear All</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -89,11 +120,69 @@ export function ErrorFeed({ errors, aiStreaming = {} }: ErrorFeedProps) {
               error={error}
               isExpanded={expandedError === error.id}
               onToggle={() => setExpandedError(expandedError === error.id ? null : error.id)}
+              onHide={onHideError}
               aiStreamingText={aiStreaming[error.id]}
             />
           ))
         )}
       </div>
+
+      {/* Confirmation Dialog */}
+      {showClearConfirmation && (
+        <div
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="clear-errors-title"
+          onClick={() => !isClearing && setShowClearConfirmation(false)}
+        >
+          <div
+            className="glass-card rounded-xl p-8 border-2 border-destructive/60 max-w-md w-full mx-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-4 mb-6">
+              <div className="p-3 rounded-lg bg-destructive/30 border-2 border-destructive/60">
+                <AlertCircle className="w-8 h-8 text-destructive" aria-hidden="true" />
+              </div>
+              <div>
+                <h3 id="clear-errors-title" className="text-2xl font-bold text-destructive mb-2">
+                  Clear All Errors?
+                </h3>
+                <p className="text-base text-muted-foreground">
+                  This will permanently delete all {errors.length} error{errors.length !== 1 ? 's' : ''} from the database. This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowClearConfirmation(false)}
+                disabled={isClearing}
+                className="px-6 py-3 rounded-lg bg-muted/70 border-2 border-primary/40 hover:bg-muted/90 hover:border-primary/60 transition-all transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleClearErrors}
+                disabled={isClearing}
+                className="px-6 py-3 rounded-lg bg-destructive/30 border-2 border-destructive/60 hover:bg-destructive/40 hover:border-destructive/80 transition-all transition-colors font-semibold text-destructive disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isClearing ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-destructive/30 border-t-destructive rounded-full animate-spin" />
+                    Clearing...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-5 h-5" />
+                    Clear All Errors
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -102,11 +191,13 @@ function ErrorCard({
   error,
   isExpanded,
   onToggle,
+  onHide,
   aiStreamingText,
 }: {
   error: ErrorData
   isExpanded: boolean
   onToggle: () => void
+  onHide?: (id: number) => void
   aiStreamingText?: string
 }) {
   const [copiedMetadata, setCopiedMetadata] = useState(false)
@@ -195,16 +286,29 @@ function ErrorCard({
 
           {/* Expand/Collapse Button */}
           <div className="flex items-center gap-2">
+            {onHide && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onHide(Number(error.id))
+                }}
+                className="p-2 rounded-lg hover:bg-muted/50 transition-colors border border-border/50 hover:border-primary/50"
+                aria-label="Dismiss error"
+                title="Dismiss this error"
+              >
+                <X className="w-5 h-5 text-muted-foreground hover:text-primary transition-colors" />
+              </button>
+            )}
             {isExpanded && (
               <button
                 onClick={(e) => {
                   e.stopPropagation()
                   onToggle()
                 }}
-                className="p-2 rounded-lg hover:bg-destructive/20 transition-colors border border-border/50 hover:border-destructive/50"
+                className="z-50 p-2 rounded-lg hover:bg-destructive/20 transition-colors border border-border/50 hover:border-destructive/50"
                 aria-label="Close expanded view"
               >
-                <X className="w-5 h-5 text-muted-foreground hover:text-destructive" />
+                <X className="w-5 h-5 text-muted-foreground hover:text-destructive transition-colors" />
               </button>
             )}
             <div className="p-2 rounded-lg bg-muted/40 border border-border/50">
@@ -258,7 +362,7 @@ function ErrorCard({
                     {copiedStack ? (
                       <Check className="w-4 h-4 text-success" />
                     ) : (
-                      <Copy className="w-4 h-4 text-muted-foreground !hover:text-destructive" />
+                      <Copy className="w-4 h-4 text-muted-foreground !hover:text-destructive transition-colors" />
                     )}
                   </button>
                 </div>
@@ -287,7 +391,7 @@ function ErrorCard({
                     {copiedMetadata ? (
                       <Check className="w-4 h-4 text-success" />
                     ) : (
-                      <Copy className="w-4 h-4 text-muted-foreground !hover:text-primary" />
+                      <Copy className="w-4 h-4 text-muted-foreground !hover:text-primary transition-colors" />
                     )}
                   </button>
                 </div>

@@ -1,6 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
-import { insertError, updateErrorWithAI, getRecentErrors, getErrorsInTimeRange } from '../db/index.js';
+import { insertError, updateErrorWithAI, getRecentErrors, getErrorsInTimeRange, clearAllErrors as dbClearAllErrors } from '../db/index.js';
 import { analyzeErrorStreaming } from '../services/ai.js';
 import { trackErrorPattern, detectSpikes, findSimilarErrors, getErrorStatistics } from '../services/patterns.js';
 const router = express.Router();
@@ -221,6 +221,30 @@ router.get('/range/:start/:end', (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to fetch errors'
+        });
+    }
+});
+/**
+ * DELETE /api/errors
+ * Clear all errors from the database
+ */
+router.delete('/', (req, res) => {
+    const io = req.app.get('io');
+    try {
+        // Clear all errors from the database
+        dbClearAllErrors();
+        // Notify all connected clients to clear their errors
+        io.emit('errors:cleared');
+        res.json({
+            success: true,
+            message: 'All errors cleared successfully'
+        });
+    }
+    catch (error) {
+        console.error('Failed to clear errors:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to clear errors'
         });
     }
 });
