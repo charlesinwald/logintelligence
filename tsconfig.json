@@ -33,7 +33,8 @@
     "node_modules",
     "dist",
     "client",
-    "src"
+    "src/**/*",
+    "**/*.old/**"
   ]
 }
 
