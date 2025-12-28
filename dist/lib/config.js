@@ -64,9 +64,59 @@ export function getConfigPath() {
     return CONFIG_FILE;
 }
 /**
+ * Get LLM provider
+ */
+export function getLLMProvider() {
+    const config = getConfig();
+    return config.LLM_PROVIDER || process.env.LLM_PROVIDER || 'gemini';
+}
+/**
+ * Set LLM provider
+ */
+export function setLLMProvider(provider) {
+    const config = getConfig();
+    config.LLM_PROVIDER = provider;
+    return saveConfig(config);
+}
+/**
+ * Get Ollama base URL
+ */
+export function getOllamaBaseURL() {
+    const config = getConfig();
+    return config.OLLAMA_BASE_URL || process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+}
+/**
+ * Set Ollama base URL
+ */
+export function setOllamaBaseURL(baseUrl) {
+    const config = getConfig();
+    config.OLLAMA_BASE_URL = baseUrl;
+    return saveConfig(config);
+}
+/**
+ * Get Ollama model
+ */
+export function getOllamaModel() {
+    const config = getConfig();
+    return config.OLLAMA_MODEL || process.env.OLLAMA_MODEL || 'llama3.1';
+}
+/**
+ * Set Ollama model
+ */
+export function setOllamaModel(model) {
+    const config = getConfig();
+    config.OLLAMA_MODEL = model;
+    return saveConfig(config);
+}
+/**
  * Check if configured
  */
 export function isConfigured() {
+    const provider = getLLMProvider();
+    if (provider === 'ollama') {
+        // Ollama doesn't require API key configuration
+        return true;
+    }
     return !!getApiKey();
 }
 export default {
@@ -74,6 +124,12 @@ export default {
     saveConfig,
     getApiKey,
     setApiKey,
+    getLLMProvider,
+    setLLMProvider,
+    getOllamaBaseURL,
+    setOllamaBaseURL,
+    getOllamaModel,
+    setOllamaModel,
     getConfigPath,
     isConfigured
 };

@@ -6,7 +6,10 @@ const CONFIG_DIR = join(homedir(), '.logintelligence');
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
 
 interface Config {
+  LLM_PROVIDER?: 'gemini' | 'ollama';
   GEMINI_API_KEY?: string;
+  OLLAMA_BASE_URL?: string;
+  OLLAMA_MODEL?: string;
   [key: string]: any;
 }
 
@@ -78,9 +81,65 @@ export function getConfigPath(): string {
 }
 
 /**
+ * Get LLM provider
+ */
+export function getLLMProvider(): 'gemini' | 'ollama' {
+  const config = getConfig();
+  return config.LLM_PROVIDER || (process.env.LLM_PROVIDER as 'gemini' | 'ollama') || 'gemini';
+}
+
+/**
+ * Set LLM provider
+ */
+export function setLLMProvider(provider: 'gemini' | 'ollama'): boolean {
+  const config = getConfig();
+  config.LLM_PROVIDER = provider;
+  return saveConfig(config);
+}
+
+/**
+ * Get Ollama base URL
+ */
+export function getOllamaBaseURL(): string {
+  const config = getConfig();
+  return config.OLLAMA_BASE_URL || process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+}
+
+/**
+ * Set Ollama base URL
+ */
+export function setOllamaBaseURL(baseUrl: string): boolean {
+  const config = getConfig();
+  config.OLLAMA_BASE_URL = baseUrl;
+  return saveConfig(config);
+}
+
+/**
+ * Get Ollama model
+ */
+export function getOllamaModel(): string {
+  const config = getConfig();
+  return config.OLLAMA_MODEL || process.env.OLLAMA_MODEL || 'llama3.1';
+}
+
+/**
+ * Set Ollama model
+ */
+export function setOllamaModel(model: string): boolean {
+  const config = getConfig();
+  config.OLLAMA_MODEL = model;
+  return saveConfig(config);
+}
+
+/**
  * Check if configured
  */
 export function isConfigured(): boolean {
+  const provider = getLLMProvider();
+  if (provider === 'ollama') {
+    // Ollama doesn't require API key configuration
+    return true;
+  }
   return !!getApiKey();
 }
 
@@ -89,6 +148,12 @@ export default {
   saveConfig,
   getApiKey,
   setApiKey,
+  getLLMProvider,
+  setLLMProvider,
+  getOllamaBaseURL,
+  setOllamaBaseURL,
+  getOllamaModel,
+  setOllamaModel,
   getConfigPath,
   isConfigured
 };
