@@ -7,6 +7,7 @@ interface AuthActions {
   googleLogin: (credential: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<string | null>;
+  refreshUser: () => Promise<void>;
   setAccessToken: (token: string) => void;
   initialize: () => Promise<void>;
   clearError: () => void;
@@ -133,6 +134,20 @@ export const useAuthStore = create<AuthStore>()(
         } catch {
           get().logout();
           return null;
+        }
+      },
+
+      refreshUser: async () => {
+        const { accessToken } = get();
+        if (!accessToken) return;
+
+        try {
+          const { user } = await getMeApi(accessToken);
+          set({
+            user: { ...user, subscription: user.subscription },
+          });
+        } catch (error) {
+          console.error('Failed to refresh user:', error);
         }
       },
     }),

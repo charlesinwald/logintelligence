@@ -92,10 +92,25 @@ export function authenticateUser(
     }
 
     // Load subscription
-    const subscription = getSubscriptionByUserId(user.id);
+    let subscription = getSubscriptionByUserId(user.id);
     if (!subscription) {
-      res.status(500).json({ error: 'Subscription not found' });
-      return;
+      console.warn(`[auth middleware] Subscription not found for user ID: ${user.id}. Assigning default free tier.`);
+      // Assign a default free tier subscription if not found
+      subscription = {
+        id: -1, // Placeholder ID
+        user_id: user.id,
+        stripe_customer_id: 'N/A', // No Stripe customer for default
+        stripe_subscription_id: null,
+        tier: 'free',
+        status: 'active',
+        trial_start: null,
+        trial_end: null,
+        current_period_start: Date.now(),
+        current_period_end: Date.now() + (10 * 365 * 24 * 60 * 60 * 1000), // 10 years from now
+        cancel_at_period_end: 0,
+        created_at: Date.now(),
+        updated_at: Date.now()
+      };
     }
 
     // Attach user data to request

@@ -51,7 +51,7 @@ export function LoginPage() {
               Continue with your Google account
             </p>
 
-            <div className={isLoading ? 'opacity-50 pointer-events-none' : ''}>
+            <div className={isLoading ? 'opacity-50 pointer-events-none' : 'scale-150'}>
               <GoogleLogin
                 onSuccess={handleGoogleSuccess}
                 onError={() => {
@@ -59,6 +59,14 @@ export function LoginPage() {
                 }}
                 type="icon"
                 shape="circle"
+                theme="filled_black"
+                text="signin"
+                size="large"
+                width="full"
+                logo_alignment="left"
+                locale="en"
+                useOneTap
+                auto_select
               />
             </div>
           </div>

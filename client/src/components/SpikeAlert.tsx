@@ -21,7 +21,7 @@ export function SpikeAlert({ spikes, onClear }: SpikeAlertProps) {
   }
 
   return (
-    <div className="space-y-3 animate-in slide-in-from-top-4 duration-500">
+    <div className="space-y-3 animate-in slide-in-from-top-4 duration-500 max-h-96 overflow-y-auto">
       {spikes.map((spike, index) => (
         <div
           key={`${spike.source}-${spike.category}-${index}`}
