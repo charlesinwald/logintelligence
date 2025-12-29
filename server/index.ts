@@ -10,7 +10,6 @@ import { dirname, join } from 'path';
 // Import routes and services
 import errorRoutes from './routes/errors.js';
 import authRoutes from './routes/auth.js';
-import subscriptionRoutes from './routes/subscriptions.js';
 import { initializeSocketHandlers } from './socket/handler.js';
 import './db/index.js'; // Initialize database
 
@@ -47,10 +46,6 @@ app.use(cors({
   credentials: true
 }));
 app.use(cookieParser());
-
-// Stripe webhook route needs raw body, so register it before JSON middleware
-app.use('/api/subscriptions/webhook', express.raw({ type: 'application/json' }));
-
 app.use(express.json({ limit: '10mb' })); // Support larger error batches
 app.use(express.urlencoded({ extended: true }));
 
@@ -77,7 +72,6 @@ app.get('/health', (req: Request, res: Response) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/errors', errorRoutes);
-app.use('/api/subscriptions', subscriptionRoutes);
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {

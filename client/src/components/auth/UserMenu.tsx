@@ -97,7 +97,7 @@ export function UserMenu() {
 
   const handleUpgrade = () => {
     setIsOpen(false)
-    navigate("/upgrade")
+    // TODO: Navigate to upgrade page
   }
 
   const handleSettings = () => {

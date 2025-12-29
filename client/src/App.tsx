@@ -5,7 +5,6 @@ import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { PublicRoute } from './components/routing/PublicRoute';
 import { LoginPage } from './components/auth/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
-import { UpgradePage } from './pages/UpgradePage';
 
 function App() {
   const initialize = useAuthStore((state) => state.initialize);
@@ -22,14 +21,6 @@ function App() {
           <PublicRoute>
             <LoginPage />
           </PublicRoute>
-        }
-      />
-      <Route
-        path="/upgrade"
-        element={
-          <ProtectedRoute>
-            <UpgradePage />
-          </ProtectedRoute>
         }
       />
       <Route
