@@ -4,6 +4,8 @@ import { Server as SocketIOServer } from 'socket.io';
 import { insertError, updateErrorWithAI, getRecentErrors, getErrorsInTimeRange, clearAllErrors as dbClearAllErrors, type ErrorData } from '../db/index.js';
 import { analyzeErrorStreaming } from '../services/ai.js';
 import { trackErrorPattern, detectSpikes, findSimilarErrors, getErrorStatistics, type SpikeDetection } from '../services/patterns.js';
+import { verifyApiKey, updateApiKeyLastUsed } from '../models/ApiKey.js';
+import { hasCredits, deductCredits } from '../models/Credits.js';
 
 const router = express.Router();
 
@@ -33,12 +35,25 @@ const batchErrorSchema = z.object({
 
 /**
  * Analyze error with AI and stream results
+ * Requires credits - deducts 1 credit per analysis
  */
 async function analyzeErrorWithStreaming(
   errorId: number,
   errorData: ErrorData,
-  io: SocketIOServer
+  io: SocketIOServer,
+  userId?: number
 ): Promise<void> {
+  // Check if user has credits (if userId provided)
+  if (userId && !hasCredits(userId)) {
+    console.log(`[AI] Skipping analysis for error ${errorId} - user ${userId} has no credits`);
+    io.emit('error:ai_failed', {
+      errorId,
+      error: 'Insufficient credits',
+      message: 'Upgrade to Pro for unlimited AI analysis'
+    });
+    return;
+  }
+
   let streamedText = '';
 
   const analysis = await analyzeErrorStreaming(errorData, (chunk: string) => {
@@ -50,6 +65,14 @@ async function analyzeErrorWithStreaming(
       fullText: streamedText
     });
   });
+
+  // Deduct credit after successful analysis
+  if (userId) {
+    const deducted = deductCredits(userId);
+    if (deducted) {
+      console.log(`[AI] Deducted 1 credit from user ${userId} for error ${errorId}`);
+    }
+  }
 
   // Update database with final analysis
   updateErrorWithAI(errorId, analysis);
@@ -82,6 +105,18 @@ router.post('/', async (req: RequestWithIO, res: Response, next: NextFunction) =
   const io = req.app.get('io');
 
   try {
+    // Check for API key authentication (optional)
+    let userId: number | undefined;
+    const apiKey = req.headers['x-api-key'] as string | undefined;
+
+    if (apiKey) {
+      const apiKeyRecord = verifyApiKey(apiKey);
+      if (apiKeyRecord) {
+        userId = apiKeyRecord.user_id;
+        updateApiKeyLastUsed(apiKeyRecord.id);
+      }
+    }
+
     // Handle both single and batch submissions
     const isBatch = Array.isArray(req.body.errors);
     const errors = isBatch ? req.body.errors : [req.body];
@@ -108,16 +143,19 @@ router.post('/', async (req: RequestWithIO, res: Response, next: NextFunction) =
       io.emit('error:new', {
         id: errorId,
         ...errorData,
-        ai_status: 'processing'
+        ai_status: userId && hasCredits(userId) ? 'processing' : 'skipped'
       });
 
       results.push({ id: errorId });
 
       // Analyze with AI asynchronously (don't block response)
-      analyzeErrorWithStreaming(errorId, errorData as ErrorData, io).catch((err: Error) => {
-        console.error(`Failed to analyze error ${errorId}:`, err);
-        io.emit('error:ai_failed', { errorId, error: err.message });
-      });
+      // Only analyze if user has credits or no userId (legacy support)
+      if (!userId || hasCredits(userId)) {
+        analyzeErrorWithStreaming(errorId, errorData as ErrorData, io, userId).catch((err: Error) => {
+          console.error(`Failed to analyze error ${errorId}:`, err);
+          io.emit('error:ai_failed', { errorId, error: err.message });
+        });
+      }
     }
 
     res.status(201).json({

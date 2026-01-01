@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../utils/jwt.js';
 import { verifyApiKey, updateApiKeyLastUsed } from '../models/ApiKey.js';
 import { getUserById } from '../models/User.js';
-import { getSubscriptionByUserId } from '../models/Subscription.js';
+import { getSubscriptionByUserId, createSubscription } from '../models/Subscription.js';
 import type { User } from '../models/User.js';
 import type { Subscription } from '../models/Subscription.js';
 
@@ -94,23 +94,16 @@ export function authenticateUser(
     // Load subscription
     let subscription = getSubscriptionByUserId(user.id);
     if (!subscription) {
-      console.warn(`[auth middleware] Subscription not found for user ID: ${user.id}. Assigning default free tier.`);
-      // Assign a default free tier subscription if not found
-      subscription = {
-        id: -1, // Placeholder ID
+      console.warn(`[auth middleware] Subscription not found for user ID: ${user.id}. Creating default free tier subscription in DB.`);
+      // Create a real subscription in the database for users who don't have one
+      // This handles migration for existing users created before subscriptions were mandatory
+      subscription = createSubscription({
         user_id: user.id,
-        stripe_customer_id: 'N/A', // No Stripe customer for default
-        stripe_subscription_id: null,
+        stripe_customer_id: `cus_local_${user.id}_${Date.now()}`, // Placeholder for local/legacy users
         tier: 'free',
-        status: 'active',
-        trial_start: null,
-        trial_end: null,
-        current_period_start: Date.now(),
-        current_period_end: Date.now() + (10 * 365 * 24 * 60 * 60 * 1000), // 10 years from now
-        cancel_at_period_end: 0,
-        created_at: Date.now(),
-        updated_at: Date.now()
-      };
+        status: 'active'
+      });
+      console.log(`[auth middleware] Created subscription ${subscription.id} for user ${user.id}`);
     }
 
     // Attach user data to request

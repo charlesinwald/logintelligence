@@ -284,22 +284,38 @@ router.post('/google', async (req, res) => {
             // Get existing subscription
             subscription = getSubscriptionByUserId(user.id);
             if (!subscription) {
-                console.warn(`[/api/auth/google] Subscription not found for user ID: ${user.id}. Assigning default free tier.`);
-                // Assign a default free tier subscription if not found
-                subscription = {
-                    id: -1, // Placeholder ID
+                console.warn(`[/api/auth/google] Subscription not found for user ID: ${user.id}. Creating free tier subscription.`);
+                // Create Stripe customer if needed
+                let stripeCustomerId = `cus_local_${user.id}_${Date.now()}`;
+                if (stripe) {
+                    console.log('[/api/auth/google] Creating Stripe customer for existing user');
+                    try {
+                        const customer = await stripe.customers.create({
+                            email: user.email,
+                            name: user.name || undefined,
+                            metadata: {
+                                user_id: user.id.toString()
+                            }
+                        });
+                        stripeCustomerId = customer.id;
+                        console.log('[/api/auth/google] Stripe customer created:', stripeCustomerId);
+                    }
+                    catch (error) {
+                        console.error('[/api/auth/google] Failed to create Stripe customer:', error);
+                    }
+                }
+                // Create real subscription in database
+                subscription = createSubscription({
                     user_id: user.id,
-                    stripe_customer_id: 'N/A', // No Stripe customer for default
+                    stripe_customer_id: stripeCustomerId,
                     tier: 'free',
-                    status: 'active',
-                    current_period_start: Date.now(),
-                    current_period_end: Date.now() + (10 * 365 * 24 * 60 * 60 * 1000), // 10 years from now
-                    trial_end: null,
-                    created_at: Date.now(),
-                    updated_at: Date.now()
-                };
+                    status: 'active'
+                });
+                console.log('[/api/auth/google] Free subscription created in DB:', subscription);
             }
-            console.log('[/api/auth/google] Existing subscription found:', subscription);
+            else {
+                console.log('[/api/auth/google] Existing subscription found:', subscription);
+            }
         }
         // Generate tokens
         console.log('[/api/auth/google] Generating tokens');

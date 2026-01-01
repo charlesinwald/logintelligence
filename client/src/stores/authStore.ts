@@ -2,18 +2,25 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type { AuthState, User } from '../types/auth';
 import { googleLoginApi, logoutApi, refreshTokenApi, getMeApi } from '../api/auth';
+import { syncSubscription, verifyCheckoutSession } from '../api/subscriptions';
+import { getCredits, type CreditsSummary } from '../api/credits';
 
 interface AuthActions {
   googleLogin: (credential: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<string | null>;
   refreshUser: () => Promise<void>;
+  refreshCredits: () => Promise<void>;
+  syncSubscription: () => Promise<void>;
+  verifySession: (sessionId: string) => Promise<void>;
   setAccessToken: (token: string) => void;
   initialize: () => Promise<void>;
   clearError: () => void;
 }
 
-interface AuthStore extends AuthState, AuthActions {}
+interface AuthStore extends AuthState, AuthActions {
+  credits: CreditsSummary | null;
+}
 
 const TOKEN_REFRESH_INTERVAL = 14 * 60 * 1000; // 14 minutes
 
@@ -48,6 +55,7 @@ export const useAuthStore = create<AuthStore>()(
       isLoading: false,
       isInitialized: false,
       error: null,
+      credits: null,
 
       setAccessToken: (token: string) => {
         set({ accessToken: token });
@@ -64,11 +72,15 @@ export const useAuthStore = create<AuthStore>()(
 
         try {
           const { accessToken } = await refreshTokenApi();
-          const { user } = await getMeApi(accessToken);
+          const [{ user }, { credits }] = await Promise.all([
+            getMeApi(accessToken),
+            getCredits(accessToken)
+          ]);
 
           set({
             user: { ...user, subscription: user.subscription },
             accessToken,
+            credits,
             isAuthenticated: true,
             isLoading: false,
             isInitialized: true,
@@ -79,6 +91,7 @@ export const useAuthStore = create<AuthStore>()(
           set({
             user: null,
             accessToken: null,
+            credits: null,
             isAuthenticated: false,
             isLoading: false,
             isInitialized: true,
@@ -92,9 +105,13 @@ export const useAuthStore = create<AuthStore>()(
         try {
           const { user, subscription, accessToken } = await googleLoginApi(credential);
 
+          // Fetch credits after login
+          const { credits } = await getCredits(accessToken);
+
           set({
             user: { ...user, subscription },
             accessToken,
+            credits,
             isAuthenticated: true,
             isLoading: false,
           });
@@ -150,6 +167,52 @@ export const useAuthStore = create<AuthStore>()(
           console.error('Failed to refresh user:', error);
         }
       },
+
+      refreshCredits: async () => {
+        const { accessToken } = get();
+        if (!accessToken) return;
+
+        try {
+          const { credits } = await getCredits(accessToken);
+          set({ credits });
+        } catch (error) {
+          console.error('Failed to refresh credits:', error);
+        }
+      },
+
+      syncSubscription: async () => {
+        const { accessToken } = get();
+        if (!accessToken) return;
+
+        try {
+          console.log('[Subscription] Syncing subscription from Stripe...');
+          await syncSubscription(accessToken);
+
+          // Refresh user data to get updated subscription
+          await get().refreshUser();
+          console.log('[Subscription] Sync complete');
+        } catch (error) {
+          console.error('Failed to sync subscription:', error);
+          throw error;
+        }
+      },
+
+      verifySession: async (sessionId: string) => {
+        const { accessToken } = get();
+        if (!accessToken) return;
+
+        try {
+          console.log('[Subscription] Verifying checkout session...');
+          await verifyCheckoutSession(accessToken, sessionId);
+
+          // Refresh user data to get updated subscription
+          await get().refreshUser();
+          console.log('[Subscription] Session verified, subscription updated');
+        } catch (error) {
+          console.error('Failed to verify session:', error);
+          throw error;
+        }
+      },
     }),
     { name: 'auth-store' }
   )
@@ -159,3 +222,19 @@ export const useUser = () => useAuthStore((state) => state.user);
 export const useIsAuthenticated = () => useAuthStore((state) => state.isAuthenticated);
 export const useAuthLoading = () => useAuthStore((state) => state.isLoading);
 export const useAuthError = () => useAuthStore((state) => state.error);
+
+// Subscription hooks
+export const useSubscription = () => useAuthStore((state) => state.user?.subscription);
+export const useSyncSubscription = () => useAuthStore((state) => state.syncSubscription);
+export const useVerifySession = () => useAuthStore((state) => state.verifySession);
+
+// Helper hook to check if user is on Pro tier
+export const useIsPro = () => {
+  const subscription = useSubscription();
+  return subscription?.tier === 'pro' &&
+    (subscription?.status === 'active' || subscription?.status === 'trialing');
+};
+
+// Credits hooks
+export const useCredits = () => useAuthStore((state) => state.credits);
+export const useRefreshCredits = () => useAuthStore((state) => state.refreshCredits);

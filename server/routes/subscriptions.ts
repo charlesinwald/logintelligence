@@ -31,7 +31,7 @@ router.post('/checkout', authenticateUser, async (req: AuthRequest, res: Respons
     }
 
     // Get user's subscription
-    const subscription = getSubscriptionByUserId(req.user.id);
+    let subscription = getSubscriptionByUserId(req.user.id);
     if (!subscription) {
       return res.status(404).json({ error: 'Subscription not found' });
     }
@@ -44,9 +44,28 @@ router.post('/checkout', authenticateUser, async (req: AuthRequest, res: Respons
       });
     }
 
+    // Check if we need to create a real Stripe customer (if using placeholder)
+    let stripeCustomerId = subscription.stripe_customer_id;
+    if (stripeCustomerId.startsWith('cus_local_')) {
+      // Create a real Stripe customer
+      const customer = await stripe.customers.create({
+        email: req.user.email,
+        name: req.user.name || undefined,
+        metadata: {
+          user_id: req.user.id.toString()
+        }
+      });
+      stripeCustomerId = customer.id;
+
+      // Update subscription with real customer ID
+      subscription = updateSubscription(subscription.id, {
+        stripe_customer_id: stripeCustomerId
+      });
+    }
+
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
-      customer: subscription.stripe_customer_id,
+      customer: stripeCustomerId,
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [
@@ -120,7 +139,7 @@ router.post('/webhook', async (req: Request, res: Response) => {
             : session.subscription.id;
 
           // Get subscription from Stripe to get full details
-          const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId);
+          const stripeSubscription: Stripe.Subscription = await stripe.subscriptions.retrieve(subscriptionId);
           
           // Update subscription in database
           const subscription = getSubscriptionByUserId(parseInt(userId));
@@ -129,8 +148,6 @@ router.post('/webhook', async (req: Request, res: Response) => {
               stripe_subscription_id: subscriptionId,
               tier: 'pro',
               status: stripeSubscription.status === 'active' || stripeSubscription.status === 'trialing' ? stripeSubscription.status : 'active',
-              current_period_start: stripeSubscription.current_period_start * 1000,
-              current_period_end: stripeSubscription.current_period_end * 1000,
               trial_start: stripeSubscription.trial_start ? stripeSubscription.trial_start * 1000 : null,
               trial_end: stripeSubscription.trial_end ? stripeSubscription.trial_end * 1000 : null,
             });
@@ -159,8 +176,6 @@ router.post('/webhook', async (req: Request, res: Response) => {
               updateSubscription(subscription.id, {
                 tier: 'pro',
                 status: stripeSubscription.status === 'active' || stripeSubscription.status === 'trialing' ? stripeSubscription.status : 'active',
-                current_period_start: stripeSubscription.current_period_start * 1000,
-                current_period_end: stripeSubscription.current_period_end * 1000,
                 cancel_at_period_end: stripeSubscription.cancel_at_period_end ? 1 : 0,
               });
             }
@@ -177,6 +192,153 @@ router.post('/webhook', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Webhook handler error:', error);
     res.status(500).json({ error: 'Webhook handler failed' });
+  }
+});
+
+/**
+ * POST /api/subscriptions/verify-session
+ * Verify checkout session and update subscription if needed
+ */
+router.post('/verify-session', authenticateUser, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    if (!stripe) {
+      return res.status(503).json({ error: 'Stripe not configured' });
+    }
+
+    const { session_id } = req.body;
+    if (!session_id) {
+      return res.status(400).json({ error: 'session_id is required' });
+    }
+
+    // Retrieve the checkout session from Stripe
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+
+    // Verify this session belongs to the authenticated user
+    if (session.metadata?.user_id !== req.user.id.toString()) {
+      return res.status(403).json({ error: 'Session does not belong to this user' });
+    }
+
+    // Check if payment was successful
+    if (session.payment_status !== 'paid') {
+      return res.status(400).json({
+        error: 'Payment not completed',
+        payment_status: session.payment_status
+      });
+    }
+
+    // Get the subscription from the session
+    if (session.subscription) {
+      const subscriptionId = typeof session.subscription === 'string'
+        ? session.subscription
+        : session.subscription.id;
+
+      // Get full subscription details from Stripe
+      const stripeSubscription: Stripe.Subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+      // Update our database subscription
+      const subscription = getSubscriptionByUserId(req.user.id);
+      if (subscription) {
+        updateSubscription(subscription.id, {
+          stripe_subscription_id: subscriptionId,
+          tier: 'pro',
+          status: stripeSubscription.status === 'active' || stripeSubscription.status === 'trialing' ? stripeSubscription.status : 'active',
+          trial_start: stripeSubscription.trial_start ? stripeSubscription.trial_start * 1000 : null,
+          trial_end: stripeSubscription.trial_end ? stripeSubscription.trial_end * 1000 : null,
+        });
+
+        // Return updated subscription
+        const updatedSubscription = getSubscriptionByUserId(req.user.id);
+        return res.json({
+          success: true,
+          subscription: {
+            tier: updatedSubscription!.tier,
+            status: updatedSubscription!.status,
+            trial_end: updatedSubscription!.trial_end,
+          }
+        });
+      }
+    }
+
+    res.status(500).json({ error: 'Failed to update subscription' });
+  } catch (error: any) {
+    console.error('Session verification error:', error);
+    res.status(500).json({
+      error: 'Failed to verify session',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/subscriptions/sync
+ * Manually sync subscription from Stripe
+ */
+router.post('/sync', authenticateUser, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    if (!stripe) {
+      return res.status(503).json({ error: 'Stripe not configured' });
+    }
+
+    const subscription = getSubscriptionByUserId(req.user.id);
+    if (!subscription) {
+      return res.status(404).json({ error: 'Subscription not found' });
+    }
+
+    // Get all subscriptions for this customer from Stripe (any status)
+    const stripeSubscriptions = await stripe.subscriptions.list({
+      customer: subscription.stripe_customer_id,
+      limit: 1
+    });
+
+    if (stripeSubscriptions.data.length > 0) {
+      const stripeSubscription = stripeSubscriptions.data[0];
+
+      console.log(`[Sync] Found Stripe subscription: ${stripeSubscription.id}, status: ${stripeSubscription.status}`);
+
+      // Update our database
+      updateSubscription(subscription.id, {
+        stripe_subscription_id: stripeSubscription.id,
+        tier: 'pro',
+        status: stripeSubscription.status === 'active' || stripeSubscription.status === 'trialing' ? stripeSubscription.status : 'active',
+        trial_start: stripeSubscription.trial_start ? stripeSubscription.trial_start * 1000 : null,
+        trial_end: stripeSubscription.trial_end ? stripeSubscription.trial_end * 1000 : null,
+      });
+
+      console.log(`[Sync] Updated subscription ${subscription.id} to Pro tier`);
+
+      const updatedSubscription = getSubscriptionByUserId(req.user.id);
+      return res.json({
+        success: true,
+        message: 'Subscription synced successfully',
+        subscription: {
+          tier: updatedSubscription!.tier,
+          status: updatedSubscription!.status,
+        }
+      });
+    } else {
+      return res.json({
+        success: false,
+        message: 'No active subscription found in Stripe',
+        subscription: {
+          tier: subscription.tier,
+          status: subscription.status,
+        }
+      });
+    }
+  } catch (error: any) {
+    console.error('Sync error:', error);
+    res.status(500).json({
+      error: 'Failed to sync subscription',
+      message: error.message
+    });
   }
 });
 

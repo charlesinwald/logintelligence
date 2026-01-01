@@ -11,11 +11,12 @@ import { dirname, join } from 'path';
 import errorRoutes from './routes/errors.js';
 import authRoutes from './routes/auth.js';
 import subscriptionRoutes from './routes/subscriptions.js';
+import creditsRoutes from './routes/credits.js';
 import { initializeSocketHandlers } from './socket/handler.js';
 import './db/index.js'; // Initialize database
 
 dotenv.config();
-
+console.log(process.env.STRIPE_SECRET_KEY);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -78,6 +79,7 @@ app.get('/health', (req: Request, res: Response) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/errors', errorRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
+app.use('/api/credits', creditsRoutes);
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {

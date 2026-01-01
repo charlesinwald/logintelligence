@@ -2,12 +2,13 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { LogOut, ChevronDown, Crown, Settings, Zap } from "lucide-react"
-import { useAuthStore } from "../../stores/authStore"
+import { LogOut, ChevronDown, Crown, Settings, Zap, Coins } from "lucide-react"
+import { useAuthStore, useCredits } from "../../stores/authStore"
 
 export function UserMenu() {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
+  const credits = useCredits()
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -194,8 +195,8 @@ export function UserMenu() {
             {/* Plan Badge */}
             <div className="px-4 py-3 border-b border-border/50">
               <div className={`flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${
-                isPro 
-                  ? "bg-linear-to-r from-warning/20 to-warning/10 border-2 border-warning/40" 
+                isPro
+                  ? "bg-linear-to-r from-warning/20 to-warning/10 border-2 border-warning/40"
                   : "bg-muted/50 border-2 border-border/50"
               }`}>
                 <div className="flex items-center gap-2.5">
@@ -213,6 +214,36 @@ export function UserMenu() {
                   </div>
                 )}
               </div>
+
+              {/* Credits Display */}
+              {credits && (
+                <div className="mt-2 px-3 py-2 rounded-lg bg-background/50 border border-border/30">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Coins className={`w-4 h-4 ${credits.remaining > 0 ? "text-blue-500" : "text-destructive"}`} />
+                      <span className="text-sm font-medium text-foreground">
+                        {credits.is_pro ? "Unlimited" : `${credits.remaining}/${credits.daily_limit}`}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {credits.is_pro ? "Credits" : "Credits Today"}
+                      </span>
+                    </div>
+                    {!credits.is_pro && credits.remaining === 0 && (
+                      <button
+                        onClick={handleUpgrade}
+                        className="text-xs text-warning hover:text-warning/80 font-medium transition-colors"
+                      >
+                        Upgrade
+                      </button>
+                    )}
+                  </div>
+                  {!credits.is_pro && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Resets {new Date(credits.resets_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Menu Items */}
