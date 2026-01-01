@@ -23,6 +23,7 @@ export interface ErrorData {
   request_id?: string | null;
   metadata?: Record<string, any> | null;
   ai_category?: string | null;
+  owner_id?: number | null; // User ID who owns this error (for tier limits)
 }
 
 export interface ErrorRecord extends ErrorData {
@@ -89,14 +90,28 @@ const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf-8');
 db.exec(schema);
 
 // Run migrations
-const migrationPath = join(__dirname, 'migrations', '001_add_auth_tables.sql');
-try {
-  const migration = readFileSync(migrationPath, 'utf-8');
-  db.exec(migration);
-  console.log('✓ Migrations applied');
-} catch (error: any) {
-  if (error.code !== 'ENOENT') {
-    console.log('✓ Migrations already applied or not needed');
+const migrations = [
+  '001_add_auth_tables.sql',
+  '003_add_credits_table.sql',
+  '004_add_usage_tracking.sql',
+  '005_add_rate_limiting.sql'
+];
+
+for (const migrationFile of migrations) {
+  const migrationPath = join(__dirname, 'migrations', migrationFile);
+  try {
+    const migration = readFileSync(migrationPath, 'utf-8');
+    db.exec(migration);
+    console.log(`✓ Migration ${migrationFile} applied`);
+  } catch (error: any) {
+    if (error.code !== 'ENOENT') {
+      // If table already exists, that's okay - migration already ran
+      if (error.message && error.message.includes('already exists')) {
+        console.log(`✓ Migration ${migrationFile} already applied`);
+      } else {
+        console.error(`Error applying migration ${migrationFile}:`, error.message);
+      }
+    }
   }
 }
 
@@ -104,13 +119,13 @@ console.log('✓ Database initialized at:', DB_PATH);
 
 // Prepared statements for common operations
 export const statements = {
-  // Insert new error
-  insertError: db.prepare<[string, string | null, number, string, string, string | null, string | null, string | null, string | null]>(
+  // Insert new error (includes owner_id for user tracking)
+  insertError: db.prepare<[string, string | null, number, string, string, string | null, string | null, string | null, string | null, number | null]>(
     `
     INSERT INTO errors (
       message, stack_trace, timestamp, source, severity,
-      environment, user_id, request_id, metadata
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      environment, user_id, request_id, metadata, owner_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `
   ),
 
@@ -237,7 +252,7 @@ export const statements = {
 } as any;
 
 // Utility functions
-export function insertError(errorData: ErrorData): number {
+export function insertError(errorData: ErrorData, ownerId?: number | null): number {
   const result = statements.insertError.run(
     errorData.message,
     errorData.stack_trace || null,
@@ -247,7 +262,8 @@ export function insertError(errorData: ErrorData): number {
     errorData.environment || null,
     errorData.user_id || null,
     errorData.request_id || null,
-    errorData.metadata ? JSON.stringify(errorData.metadata) : null
+    errorData.metadata ? JSON.stringify(errorData.metadata) : null,
+    ownerId || errorData.owner_id || null
   );
 
   // Update stats bucket (5-minute buckets)

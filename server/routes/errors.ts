@@ -136,8 +136,8 @@ router.post('/', async (req: RequestWithIO, res: Response, next: NextFunction) =
         errorData.timestamp = Date.now();
       }
 
-      // Insert error into database
-      const errorId = insertError(errorData as ErrorData);
+      // Insert error into database (with owner_id for tier limit tracking)
+      const errorId = insertError(errorData as ErrorData, userId);
 
       // Emit raw error to connected clients immediately
       io.emit('error:new', {
