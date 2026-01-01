@@ -6,6 +6,7 @@ import { analyzeErrorStreaming } from '../services/ai.js';
 import { trackErrorPattern, detectSpikes, findSimilarErrors, getErrorStatistics, type SpikeDetection } from '../services/patterns.js';
 import { verifyApiKey, updateApiKeyLastUsed } from '../models/ApiKey.js';
 import { hasCredits, deductCredits } from '../models/Credits.js';
+import { getSubscriptionByUserId, isProTier } from '../models/Subscription.js';
 
 const router = express.Router();
 
@@ -26,7 +27,8 @@ const errorSchema = z.object({
   environment: z.string().optional(),
   user_id: z.string().optional(),
   request_id: z.string().optional(),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.any()).optional(),
+  analyze: z.boolean().optional() // Explicit flag to request AI analysis (for free tier)
 });
 
 const batchErrorSchema = z.object({
@@ -139,21 +141,56 @@ router.post('/', async (req: RequestWithIO, res: Response, next: NextFunction) =
       // Insert error into database (with owner_id for tier limit tracking)
       const errorId = insertError(errorData as ErrorData, userId);
 
+      // Determine if AI analysis should be performed
+      let shouldAnalyze = false;
+      let aiStatus: 'processing' | 'skipped' | 'not_available' = 'skipped';
+
+      if (userId) {
+        // Check subscription tier
+        const subscription = getSubscriptionByUserId(userId);
+        const isPro = subscription ? isProTier(subscription) : false;
+
+        if (isPro) {
+          // Pro tier: Auto-analyze if user has credits
+          shouldAnalyze = hasCredits(userId);
+          aiStatus = shouldAnalyze ? 'processing' : 'skipped';
+        } else {
+          // Free tier: Only analyze if explicitly requested via `analyze: true` flag
+          const explicitAnalyze = (errorData as any).analyze === true;
+          if (explicitAnalyze && hasCredits(userId)) {
+            shouldAnalyze = true;
+            aiStatus = 'processing';
+          } else {
+            aiStatus = 'not_available';
+          }
+        }
+      } else {
+        // Legacy support: No userId, allow analysis (for backward compatibility)
+        shouldAnalyze = true;
+        aiStatus = 'processing';
+      }
+
       // Emit raw error to connected clients immediately
       io.emit('error:new', {
         id: errorId,
         ...errorData,
-        ai_status: userId && hasCredits(userId) ? 'processing' : 'skipped'
+        ai_status: aiStatus
       });
 
       results.push({ id: errorId });
 
-      // Analyze with AI asynchronously (don't block response)
-      // Only analyze if user has credits or no userId (legacy support)
-      if (!userId || hasCredits(userId)) {
+      // Analyze with AI asynchronously if shouldAnalyze is true
+      if (shouldAnalyze) {
         analyzeErrorWithStreaming(errorId, errorData as ErrorData, io, userId).catch((err: Error) => {
           console.error(`Failed to analyze error ${errorId}:`, err);
           io.emit('error:ai_failed', { errorId, error: err.message });
+        });
+      } else if (userId && aiStatus === 'not_available') {
+        // Emit message for free tier users that analysis is not automatic
+        io.emit('error:ai_failed', {
+          errorId,
+          error: 'AI analysis not automatic',
+          message: 'Free tier users must explicitly request AI analysis by including "analyze": true in the error payload. Upgrade to Pro for automatic AI analysis.'
         });
       }
     }
@@ -263,6 +300,84 @@ router.get('/:id', (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch error'
+    });
+  }
+});
+
+/**
+ * POST /api/errors/:id/analyze
+ * Manually request AI analysis for an existing error (useful for free tier users)
+ */
+router.post('/:id/analyze', async (req: RequestWithIO, res: Response) => {
+  const io = req.app.get('io');
+
+  try {
+    const errorId = parseInt(req.params.id);
+    const error = getRecentErrors(1000).find(e => e.id === errorId);
+
+    if (!error) {
+      return res.status(404).json({
+        success: false,
+        error: 'Error not found'
+      });
+    }
+
+    // Check for API key authentication
+    let userId: number | undefined;
+    const apiKey = req.headers['x-api-key'] as string | undefined;
+
+    if (apiKey) {
+      const apiKeyRecord = verifyApiKey(apiKey);
+      if (apiKeyRecord) {
+        userId = apiKeyRecord.user_id;
+        updateApiKeyLastUsed(apiKeyRecord.id);
+      }
+    }
+
+    // Check if user has credits
+    if (userId && !hasCredits(userId)) {
+      const subscription = getSubscriptionByUserId(userId);
+      const isPro = subscription ? isProTier(subscription) : false;
+
+      return res.status(402).json({
+        success: false,
+        error: 'Insufficient credits',
+        message: isPro
+          ? 'You have used all your monthly credits. Credits reset at the beginning of next month.'
+          : `You have used all your free monthly credits (100/month). Upgrade to Pro for unlimited AI analysis.`
+      });
+    }
+
+    // Perform AI analysis
+    const errorData: ErrorData = {
+      message: error.message,
+      stack_trace: error.stack_trace || null,
+      timestamp: error.timestamp,
+      source: error.source,
+      severity: (error.severity as any) || 'unknown',
+      environment: error.environment || null,
+      user_id: error.user_id || null,
+      request_id: error.request_id || null,
+      metadata: error.metadata ? JSON.parse(error.metadata as unknown as string) : null,
+      ai_category: error.ai_category || null
+    };
+
+    // Start analysis asynchronously
+    analyzeErrorWithStreaming(errorId, errorData, io, userId).catch((err: Error) => {
+      console.error(`Failed to analyze error ${errorId}:`, err);
+      io.emit('error:ai_failed', { errorId, error: err.message });
+    });
+
+    res.json({
+      success: true,
+      message: 'AI analysis started',
+      errorId
+    });
+  } catch (error) {
+    console.error('Failed to start AI analysis:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to start AI analysis'
     });
   }
 });
