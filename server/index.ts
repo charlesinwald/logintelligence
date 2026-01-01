@@ -13,6 +13,7 @@ import authRoutes from './routes/auth.js';
 import subscriptionRoutes from './routes/subscriptions.js';
 import creditsRoutes from './routes/credits.js';
 import { initializeSocketHandlers } from './socket/handler.js';
+import { cleanupOldRateLimitEntries } from './middleware/rateLimit.js';
 import './db/index.js'; // Initialize database
 
 dotenv.config();
@@ -113,6 +114,14 @@ app.use(errorHandler);
 
 // Initialize WebSocket handlers
 initializeSocketHandlers(io);
+
+// Cleanup old rate limit entries on startup
+cleanupOldRateLimitEntries();
+
+// Set up periodic cleanup of old rate limit entries (every hour)
+setInterval(() => {
+  cleanupOldRateLimitEntries();
+}, 60 * 60 * 1000); // Every hour
 
 // Start server
 httpServer.listen(PORT, () => {

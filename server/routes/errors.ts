@@ -8,8 +8,12 @@ import { verifyApiKey, updateApiKeyLastUsed } from '../models/ApiKey.js';
 import { hasCredits, deductCredits } from '../models/Credits.js';
 import { getSubscriptionByUserId, isProTier } from '../models/Subscription.js';
 import { canIngestError, incrementErrorCount, getErrorLimit, getMonthlyErrorCount } from '../models/UsageTracking.js';
+import { rateLimit } from '../middleware/rateLimit.js';
 
 const router = express.Router();
+
+// Apply rate limiting to all error routes
+router.use(rateLimit());
 
 // Extend Express Request to include io
 interface RequestWithIO extends Request {
