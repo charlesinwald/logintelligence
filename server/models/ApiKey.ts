@@ -1,6 +1,7 @@
 import { db } from '../db/index.js';
 import type { Statement } from 'better-sqlite3';
 import { generateApiKey, hashApiKey, getApiKeyPrefix } from '../utils/apiKey.js';
+import { getSubscriptionByUserId, isProTier } from './Subscription.js';
 
 export interface ApiKey {
   id: number;
@@ -57,10 +58,56 @@ const statements = {
 };
 
 /**
+ * Check if user can create more API keys based on subscription tier
+ * Free tier: Max 1 API key
+ * Pro tier: Unlimited
+ */
+export function canCreateApiKey(userId: number): { allowed: boolean; reason?: string; currentCount: number; limit: number } {
+  const subscription = getSubscriptionByUserId(userId);
+  const isPro = subscription ? isProTier(subscription) : false;
+
+  if (isPro) {
+    // Pro tier: unlimited API keys
+    return {
+      allowed: true,
+      currentCount: getApiKeysByUserId(userId).length,
+      limit: 999999 // Effectively unlimited
+    };
+  }
+
+  // Free tier: max 1 API key
+  const currentKeys = getApiKeysByUserId(userId);
+  const currentCount = currentKeys.length;
+  const limit = 1;
+
+  if (currentCount >= limit) {
+    return {
+      allowed: false,
+      reason: `Free tier users are limited to ${limit} API key. Upgrade to Pro for unlimited API keys.`,
+      currentCount,
+      limit
+    };
+  }
+
+  return {
+    allowed: true,
+    currentCount,
+    limit
+  };
+}
+
+/**
  * Create a new API key
  * Returns the plain text key (only time it's shown)
+ * Throws error if user has reached their API key limit
  */
 export function createApiKey(data: CreateApiKeyData): ApiKeyWithPlainText {
+  // Check if user can create more API keys
+  const canCreate = canCreateApiKey(data.user_id);
+  if (!canCreate.allowed) {
+    throw new Error(canCreate.reason || 'API key limit reached');
+  }
+
   // Generate new API key
   const plainKey = generateApiKey();
   const keyHash = hashApiKey(plainKey);

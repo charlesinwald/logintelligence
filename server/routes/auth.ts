@@ -16,6 +16,7 @@ import {
   verifyRefreshToken
 } from '../utils/jwt.js';
 import { authenticateUser, AuthRequest } from '../middleware/auth.js';
+import { createApiKey, getApiKeysByUserId, deleteApiKeyByUser, canCreateApiKey } from '../models/ApiKey.js';
 import Stripe from 'stripe';
 import crypto from 'crypto';
 
@@ -572,6 +573,137 @@ router.get('/me', authenticateUser, (req: AuthRequest, res: Response) => {
       subscription: req.user.subscription
     }
   });
+});
+
+/**
+ * GET /api/auth/api-keys
+ * Get all API keys for the authenticated user
+ */
+router.get('/api-keys', authenticateUser, (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const apiKeys = getApiKeysByUserId(req.user.id);
+    const canCreate = canCreateApiKey(req.user.id);
+
+    res.json({
+      success: true,
+      api_keys: apiKeys.map(key => ({
+        id: key.id,
+        key_prefix: key.key_prefix,
+        name: key.name,
+        last_used_at: key.last_used_at,
+        created_at: key.created_at
+      })),
+      limits: {
+        current_count: canCreate.currentCount,
+        limit: canCreate.limit,
+        can_create_more: canCreate.allowed
+      }
+    });
+  } catch (error) {
+    console.error('Failed to get API keys:', error);
+    res.status(500).json({
+      error: 'Failed to retrieve API keys'
+    });
+  }
+});
+
+/**
+ * POST /api/auth/api-keys
+ * Create a new API key
+ */
+router.post('/api-keys', authenticateUser, (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { name } = req.body;
+
+    // Check if user can create more API keys
+    const canCreate = canCreateApiKey(req.user.id);
+    if (!canCreate.allowed) {
+      return res.status(403).json({
+        error: 'API key limit reached',
+        message: canCreate.reason,
+        current_count: canCreate.currentCount,
+        limit: canCreate.limit,
+        upgrade_url: '/upgrade'
+      });
+    }
+
+    // Create API key
+    const apiKey = createApiKey({
+      user_id: req.user.id,
+      name: name || null
+    });
+
+    res.status(201).json({
+      success: true,
+      api_key: {
+        id: apiKey.id,
+        key_prefix: apiKey.key_prefix,
+        name: apiKey.name,
+        created_at: apiKey.created_at,
+        plain_key: apiKey.plain_key // Only returned once when created
+      },
+      message: 'API key created successfully. Save this key securely - it will not be shown again.'
+    });
+  } catch (error: any) {
+    console.error('Failed to create API key:', error);
+    
+    if (error.message && error.message.includes('limit')) {
+      return res.status(403).json({
+        error: 'API key limit reached',
+        message: error.message
+      });
+    }
+
+    res.status(500).json({
+      error: 'Failed to create API key',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * DELETE /api/auth/api-keys/:id
+ * Delete an API key
+ */
+router.delete('/api-keys/:id', authenticateUser, (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const apiKeyId = parseInt(req.params.id);
+    if (isNaN(apiKeyId)) {
+      return res.status(400).json({
+        error: 'Invalid API key ID'
+      });
+    }
+
+    // Delete API key (with ownership check)
+    const deleted = deleteApiKeyByUser(apiKeyId, req.user.id);
+    if (!deleted) {
+      return res.status(404).json({
+        error: 'API key not found or you do not have permission to delete it'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'API key deleted successfully'
+    });
+  } catch (error) {
+    console.error('Failed to delete API key:', error);
+    res.status(500).json({
+      error: 'Failed to delete API key'
+    });
+  }
 });
 
 export default router;
