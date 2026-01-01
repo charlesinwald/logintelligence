@@ -1,5 +1,6 @@
 import { db } from '../db/index.js';
 import { isProTier, getSubscriptionByUserId } from './Subscription.js';
+import { incrementAICreditCount } from './UsageTracking.js';
 
 export interface Credits {
   id: number;
@@ -103,6 +104,14 @@ export function deductCredits(userId: number, amount: number = 1): boolean {
     const result = statements.deductCredit.run(Date.now(), userId);
     if (result.changes === 0) {
       return false;
+    }
+    
+    // Track AI credit usage in usage_tracking table
+    try {
+      incrementAICreditCount(userId);
+    } catch (error) {
+      // Log but don't fail if usage tracking fails
+      console.error(`Failed to track AI credit usage for user ${userId}:`, error);
     }
   }
 

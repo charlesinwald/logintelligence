@@ -7,6 +7,7 @@ import { trackErrorPattern, detectSpikes, findSimilarErrors, getErrorStatistics,
 import { verifyApiKey, updateApiKeyLastUsed } from '../models/ApiKey.js';
 import { hasCredits, deductCredits } from '../models/Credits.js';
 import { getSubscriptionByUserId, isProTier } from '../models/Subscription.js';
+import { canIngestError, incrementErrorCount, getErrorLimit, getMonthlyErrorCount } from '../models/UsageTracking.js';
 
 const router = express.Router();
 
@@ -132,6 +133,32 @@ router.post('/', async (req: RequestWithIO, res: Response, next: NextFunction) =
 
     const results: Array<{ id: number }> = [];
 
+    // Check error limits before processing (only for authenticated users)
+    if (userId) {
+      const errorLimit = getErrorLimit(userId);
+      const currentCount = getMonthlyErrorCount(userId);
+      const errorsCount = errors.length;
+      const wouldExceedLimit = currentCount + errorsCount > errorLimit;
+
+      if (wouldExceedLimit) {
+        const subscription = getSubscriptionByUserId(userId);
+        const isPro = subscription ? isProTier(subscription) : false;
+
+        return res.status(429).json({
+          success: false,
+          error: 'Monthly error limit exceeded',
+          message: isPro
+            ? `This batch would exceed your monthly error limit. Please contact support.`
+            : `This batch would exceed your monthly limit of ${errorLimit} errors (current: ${currentCount}, batch: ${errorsCount}). Upgrade to Pro for unlimited error tracking.`,
+          limit: errorLimit,
+          current_count: currentCount,
+          batch_size: errorsCount,
+          remaining: Math.max(0, errorLimit - currentCount),
+          upgrade_url: '/upgrade',
+        });
+      }
+    }
+
     for (const errorData of errors) {
       // Set timestamp if not provided
       if (!errorData.timestamp) {
@@ -140,6 +167,11 @@ router.post('/', async (req: RequestWithIO, res: Response, next: NextFunction) =
 
       // Insert error into database (with owner_id for tier limit tracking)
       const errorId = insertError(errorData as ErrorData, userId);
+
+      // Track error count for authenticated users
+      if (userId) {
+        incrementErrorCount(userId);
+      }
 
       // Determine if AI analysis should be performed
       let shouldAnalyze = false;
