@@ -94,7 +94,8 @@ const migrations = [
   '001_add_auth_tables.sql',
   '003_add_credits_table.sql',
   '004_add_usage_tracking.sql',
-  '005_add_rate_limiting.sql'
+  '005_add_rate_limiting.sql',
+  '006_update_credits_to_monthly.sql'
 ];
 
 for (const migrationFile of migrations) {

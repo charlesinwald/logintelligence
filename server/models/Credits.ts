@@ -6,13 +6,13 @@ export interface Credits {
   user_id: number;
   remaining_credits: number;
   total_credits_used: number;
-  last_reset_date: string; // YYYY-MM-DD format
+  last_reset_date: string; // YYYY-MM format (monthly reset)
   created_at: number;
   updated_at: number;
 }
 
-const FREE_TIER_DAILY_CREDITS = 10;
-const PRO_TIER_DAILY_CREDITS = 9999; // Effectively unlimited
+const FREE_TIER_MONTHLY_CREDITS = 100; // 100 credits per month (~3 per day)
+const PRO_TIER_MONTHLY_CREDITS = 9999; // Effectively unlimited
 
 // Prepared statements
 const statements = {
@@ -22,7 +22,7 @@ const statements = {
 
   createCredits: db.prepare(`
     INSERT INTO credits (user_id, remaining_credits, last_reset_date)
-    VALUES (?, ?, date('now'))
+    VALUES (?, ?, strftime('%Y-%m', 'now'))
   `),
 
   updateCredits: db.prepare(`
@@ -45,7 +45,7 @@ const statements = {
   resetCredits: db.prepare(`
     UPDATE credits
     SET remaining_credits = ?,
-        last_reset_date = date('now'),
+        last_reset_date = strftime('%Y-%m', 'now'),
         updated_at = ?
     WHERE user_id = ?
   `),
@@ -59,19 +59,23 @@ export function getCredits(userId: number): Credits {
 
   if (!credits) {
     // Create credits record if it doesn't exist
-    statements.createCredits.run(userId, FREE_TIER_DAILY_CREDITS);
+    const subscription = getSubscriptionByUserId(userId);
+    const monthlyLimit = subscription && isProTier(subscription)
+      ? PRO_TIER_MONTHLY_CREDITS
+      : FREE_TIER_MONTHLY_CREDITS;
+    statements.createCredits.run(userId, monthlyLimit);
     credits = statements.getCredits.get(userId) as Credits;
   }
 
-  // Check if we need to reset credits (new day)
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-  if (credits.last_reset_date !== today) {
+  // Check if we need to reset credits (new month)
+  const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
+  if (credits.last_reset_date !== currentMonth) {
     const subscription = getSubscriptionByUserId(userId);
-    const dailyLimit = subscription && isProTier(subscription)
-      ? PRO_TIER_DAILY_CREDITS
-      : FREE_TIER_DAILY_CREDITS;
+    const monthlyLimit = subscription && isProTier(subscription)
+      ? PRO_TIER_MONTHLY_CREDITS
+      : FREE_TIER_MONTHLY_CREDITS;
 
-    statements.resetCredits.run(dailyLimit, Date.now(), userId);
+    statements.resetCredits.run(monthlyLimit, Date.now(), userId);
     credits = statements.getCredits.get(userId) as Credits;
   }
 
@@ -106,13 +110,21 @@ export function deductCredits(userId: number, amount: number = 1): boolean {
 }
 
 /**
- * Get daily credit limit for user based on subscription
+ * Get monthly credit limit for user based on subscription
  */
-export function getDailyLimit(userId: number): number {
+export function getMonthlyLimit(userId: number): number {
   const subscription = getSubscriptionByUserId(userId);
   return subscription && isProTier(subscription)
-    ? PRO_TIER_DAILY_CREDITS
-    : FREE_TIER_DAILY_CREDITS;
+    ? PRO_TIER_MONTHLY_CREDITS
+    : FREE_TIER_MONTHLY_CREDITS;
+}
+
+/**
+ * Get daily credit limit for user based on subscription (deprecated, kept for backward compatibility)
+ * @deprecated Use getMonthlyLimit instead
+ */
+export function getDailyLimit(userId: number): number {
+  return getMonthlyLimit(userId);
 }
 
 /**
@@ -120,29 +132,37 @@ export function getDailyLimit(userId: number): number {
  */
 export interface CreditsSummary {
   remaining: number;
-  used_today: number;
-  daily_limit: number;
+  used_this_month: number;
+  monthly_limit: number;
   is_pro: boolean;
-  resets_at: string; // ISO timestamp for midnight
+  resets_at: string; // ISO timestamp for first day of next month
+  // Legacy fields for backward compatibility
+  used_today?: number;
+  daily_limit?: number;
 }
 
 export function getCreditsSummary(userId: number): CreditsSummary {
   const credits = getCredits(userId);
   const subscription = getSubscriptionByUserId(userId);
   const isPro = subscription ? isProTier(subscription) : false;
-  const dailyLimit = getDailyLimit(userId);
+  const monthlyLimit = getMonthlyLimit(userId);
 
-  // Calculate when credits reset (midnight)
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(0, 0, 0, 0);
+  // Calculate when credits reset (first day of next month)
+  const now = new Date();
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  nextMonth.setHours(0, 0, 0, 0);
+
+  const usedThisMonth = monthlyLimit - credits.remaining_credits;
 
   return {
     remaining: credits.remaining_credits,
-    used_today: dailyLimit - credits.remaining_credits,
-    daily_limit: dailyLimit,
+    used_this_month: usedThisMonth,
+    monthly_limit: monthlyLimit,
     is_pro: isPro,
-    resets_at: tomorrow.toISOString(),
+    resets_at: nextMonth.toISOString(),
+    // Legacy fields for backward compatibility
+    used_today: usedThisMonth,
+    daily_limit: monthlyLimit,
   };
 }
 
@@ -150,6 +170,7 @@ export default {
   getCredits,
   hasCredits,
   deductCredits,
-  getDailyLimit,
+  getMonthlyLimit,
+  getDailyLimit, // Deprecated but kept for backward compatibility
   getCreditsSummary,
 };
