@@ -1,8 +1,10 @@
 import express from 'express';
 import { z } from 'zod';
-import { insertError, updateErrorWithAI, getRecentErrors, getErrorsInTimeRange } from '../db/index.js';
+import { insertError, updateErrorWithAI, getRecentErrors, getErrorsInTimeRange, clearAllErrors as dbClearAllErrors } from '../db/index.js';
 import { analyzeErrorStreaming } from '../services/ai.js';
 import { trackErrorPattern, detectSpikes, findSimilarErrors, getErrorStatistics } from '../services/patterns.js';
+import { verifyApiKey, updateApiKeyLastUsed } from '../models/ApiKey.js';
+import { hasCredits, deductCredits } from '../models/Credits.js';
 const router = express.Router();
 // Validation schema
 const errorSchema = z.object({
@@ -21,8 +23,19 @@ const batchErrorSchema = z.object({
 });
 /**
  * Analyze error with AI and stream results
+ * Requires credits - deducts 1 credit per analysis
  */
-async function analyzeErrorWithStreaming(errorId, errorData, io) {
+async function analyzeErrorWithStreaming(errorId, errorData, io, userId) {
+    // Check if user has credits (if userId provided)
+    if (userId && !hasCredits(userId)) {
+        console.log(`[AI] Skipping analysis for error ${errorId} - user ${userId} has no credits`);
+        io.emit('error:ai_failed', {
+            errorId,
+            error: 'Insufficient credits',
+            message: 'Upgrade to Pro for unlimited AI analysis'
+        });
+        return;
+    }
     let streamedText = '';
     const analysis = await analyzeErrorStreaming(errorData, (chunk) => {
         streamedText += chunk;
@@ -33,6 +46,13 @@ async function analyzeErrorWithStreaming(errorId, errorData, io) {
             fullText: streamedText
         });
     });
+    // Deduct credit after successful analysis
+    if (userId) {
+        const deducted = deductCredits(userId);
+        if (deducted) {
+            console.log(`[AI] Deducted 1 credit from user ${userId} for error ${errorId}`);
+        }
+    }
     // Update database with final analysis
     updateErrorWithAI(errorId, analysis);
     // Track pattern
@@ -58,6 +78,16 @@ async function analyzeErrorWithStreaming(errorId, errorData, io) {
 router.post('/', async (req, res, next) => {
     const io = req.app.get('io');
     try {
+        // Check for API key authentication (optional)
+        let userId;
+        const apiKey = req.headers['x-api-key'];
+        if (apiKey) {
+            const apiKeyRecord = verifyApiKey(apiKey);
+            if (apiKeyRecord) {
+                userId = apiKeyRecord.user_id;
+                updateApiKeyLastUsed(apiKeyRecord.id);
+            }
+        }
         // Handle both single and batch submissions
         const isBatch = Array.isArray(req.body.errors);
         const errors = isBatch ? req.body.errors : [req.body];
@@ -80,14 +110,17 @@ router.post('/', async (req, res, next) => {
             io.emit('error:new', {
                 id: errorId,
                 ...errorData,
-                ai_status: 'processing'
+                ai_status: userId && hasCredits(userId) ? 'processing' : 'skipped'
             });
             results.push({ id: errorId });
             // Analyze with AI asynchronously (don't block response)
-            analyzeErrorWithStreaming(errorId, errorData, io).catch((err) => {
-                console.error(`Failed to analyze error ${errorId}:`, err);
-                io.emit('error:ai_failed', { errorId, error: err.message });
-            });
+            // Only analyze if user has credits or no userId (legacy support)
+            if (!userId || hasCredits(userId)) {
+                analyzeErrorWithStreaming(errorId, errorData, io, userId).catch((err) => {
+                    console.error(`Failed to analyze error ${errorId}:`, err);
+                    io.emit('error:ai_failed', { errorId, error: err.message });
+                });
+            }
         }
         res.status(201).json({
             success: true,
@@ -221,6 +254,30 @@ router.get('/range/:start/:end', (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to fetch errors'
+        });
+    }
+});
+/**
+ * DELETE /api/errors
+ * Clear all errors from the database
+ */
+router.delete('/', (req, res) => {
+    const io = req.app.get('io');
+    try {
+        // Clear all errors from the database
+        dbClearAllErrors();
+        // Notify all connected clients to clear their errors
+        io.emit('errors:cleared');
+        res.json({
+            success: true,
+            message: 'All errors cleared successfully'
+        });
+    }
+    catch (error) {
+        console.error('Failed to clear errors:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to clear errors'
         });
     }
 });

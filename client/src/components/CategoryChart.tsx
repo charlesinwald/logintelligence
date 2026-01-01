@@ -40,7 +40,7 @@ export function CategoryChart({ stats, isLoading = false }: CategoryChartProps) 
     .sort((a, b) => b.count - a.count)
     .slice(0, 10)
 
-  const getCategoryColor = (category: string, index: number) => {
+  const getCategoryColor = (index: number) => {
     const colors = [
       "oklch(0.65 0.25 264)", // Primary blue
       "oklch(0.7 0.24 328)", // Secondary pink
@@ -101,9 +101,9 @@ export function CategoryChart({ stats, isLoading = false }: CategoryChartProps) 
                 {chartData.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
-                    fill={getCategoryColor(entry.category, index)}
+                    fill={getCategoryColor(index)}
                     style={{
-                      filter: `drop-shadow(0 0 8px ${getCategoryColor(entry.category, index)}40)`,
+                      filter: `drop-shadow(0 0 8px ${getCategoryColor(index)}40)`,
                     }}
                   />
                 ))}
@@ -121,8 +121,8 @@ export function CategoryChart({ stats, isLoading = false }: CategoryChartProps) 
               <div
                 className="w-4 h-4 rounded pulse-glow"
                 style={{
-                  backgroundColor: getCategoryColor(cat.category, index),
-                  boxShadow: `0 0 12px ${getCategoryColor(cat.category, index)}70`,
+                  backgroundColor: getCategoryColor(index),
+                  boxShadow: `0 0 12px ${getCategoryColor(index)}70`,
                 }}
               />
               <span className="text-base text-foreground truncate flex-1 font-medium">{cat.category}</span>

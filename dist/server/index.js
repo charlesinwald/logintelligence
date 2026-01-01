@@ -9,12 +9,20 @@ import { dirname, join } from 'path';
 // Import routes and services
 import errorRoutes from './routes/errors.js';
 import authRoutes from './routes/auth.js';
+import subscriptionRoutes from './routes/subscriptions.js';
+import creditsRoutes from './routes/credits.js';
 import { initializeSocketHandlers } from './socket/handler.js';
 import './db/index.js'; // Initialize database
 dotenv.config();
+console.log(process.env.STRIPE_SECRET_KEY);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const app = express();
+// Set COOP header to allow Google sign-in popups
+app.use((_req, res, next) => {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+    next();
+});
 const httpServer = createServer(app);
 const io = new SocketIOServer(httpServer, {
     cors: {
@@ -34,6 +42,8 @@ app.use(cors({
     credentials: true
 }));
 app.use(cookieParser());
+// Stripe webhook route needs raw body, so register it before JSON middleware
+app.use('/api/subscriptions/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '10mb' })); // Support larger error batches
 app.use(express.urlencoded({ extended: true }));
 // Request logging in development
@@ -56,6 +66,8 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/errors', errorRoutes);
+app.use('/api/subscriptions', subscriptionRoutes);
+app.use('/api/credits', creditsRoutes);
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
     const clientDistPath = join(__dirname, '../../client/dist');

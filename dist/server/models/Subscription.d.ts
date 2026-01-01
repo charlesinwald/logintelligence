@@ -27,6 +27,7 @@ export interface CreateSubscriptionData {
     current_period_end?: number | null;
 }
 export interface UpdateSubscriptionData {
+    stripe_customer_id?: string;
     stripe_subscription_id?: string | null;
     tier?: SubscriptionTier;
     status?: SubscriptionStatus;

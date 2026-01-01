@@ -4,6 +4,7 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
+  envDir: '..',  // Read .env from parent directory
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
@@ -13,7 +14,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:7878',
+        target: 'http://localhost:3000',
         changeOrigin: true
       }
     }

@@ -33,6 +33,7 @@ export interface CreateSubscriptionData {
 }
 
 export interface UpdateSubscriptionData {
+  stripe_customer_id?: string;
   stripe_subscription_id?: string | null;
   tier?: SubscriptionTier;
   status?: SubscriptionStatus;
@@ -71,7 +72,8 @@ const statements = {
 
   updateSubscription: db.prepare(`
     UPDATE subscriptions
-    SET stripe_subscription_id = COALESCE(?, stripe_subscription_id),
+    SET stripe_customer_id = COALESCE(?, stripe_customer_id),
+        stripe_subscription_id = COALESCE(?, stripe_subscription_id),
         tier = COALESCE(?, tier),
         status = COALESCE(?, status),
         trial_start = COALESCE(?, trial_start),
@@ -149,6 +151,7 @@ export function updateSubscription(id: number, updates: UpdateSubscriptionData):
   const now = Date.now();
 
   statements.updateSubscription.run(
+    updates.stripe_customer_id || null,
     updates.stripe_subscription_id !== undefined ? updates.stripe_subscription_id : null,
     updates.tier || null,
     updates.status || null,

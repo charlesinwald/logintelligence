@@ -1,1 +1,1 @@
-{"version":3,"file":"errors.d.ts","sourceRoot":"","sources":["../../../server/routes/errors.ts"],"names":[],"mappings":"AAOA,QAAA,MAAM,MAAM,4CAAmB,CAAC;AAoQhC,eAAe,MAAM,CAAC"}
+{"version":3,"file":"errors.d.ts","sourceRoot":"","sources":["../../../server/routes/errors.ts"],"names":[],"mappings":"AASA,QAAA,MAAM,MAAM,4CAAmB,CAAC;AAmUhC,eAAe,MAAM,CAAC"}

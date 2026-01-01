@@ -73,7 +73,7 @@ export function Settings({
   const handleReset = () => {
     onResetConfig();
     setServerUrl('localhost');
-    setPort('7878');
+    setPort('3000');
     onReconnect();
   };
 
@@ -103,7 +103,7 @@ export function Settings({
             className="p-2 rounded-lg hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/60"
             aria-label="Close settings"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 transition-colors" />
           </button>
         </div>
 
@@ -136,7 +136,7 @@ export function Settings({
               max="65535"
               value={port}
               onChange={(e) => setPort(e.target.value)}
-              placeholder="7878"
+              placeholder="3000"
               className="w-full bg-muted/50 border border-primary/30 rounded-lg px-4 py-3 text-sm font-medium backdrop-blur-sm hover:border-primary/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
             />
             <p className="mt-1 text-xs text-muted-foreground">
@@ -157,7 +157,7 @@ export function Settings({
               aria-label="Reset to defaults"
               title="Reset to defaults"
             >
-              <RefreshCw className="w-5 h-5" />
+              <RefreshCw className="w-5 h-5 transition-colors" />
             </button>
           </div>
 

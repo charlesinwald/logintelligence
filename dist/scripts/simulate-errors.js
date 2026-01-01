@@ -3,7 +3,7 @@
  * Generates realistic error patterns for demo purposes
  * Requires Node.js 18+ for native fetch support
  */
-const API_URL = process.env.API_URL || 'http://localhost:7878';
+const API_URL = process.env.API_URL || 'http://localhost:3000';
 const ERROR_TEMPLATES = [
     {
         type: 'database',

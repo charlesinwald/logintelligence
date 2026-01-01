@@ -22,7 +22,8 @@ const statements = {
   `),
     updateSubscription: db.prepare(`
     UPDATE subscriptions
-    SET stripe_subscription_id = COALESCE(?, stripe_subscription_id),
+    SET stripe_customer_id = COALESCE(?, stripe_customer_id),
+        stripe_subscription_id = COALESCE(?, stripe_subscription_id),
         tier = COALESCE(?, tier),
         status = COALESCE(?, status),
         trial_start = COALESCE(?, trial_start),
@@ -78,7 +79,7 @@ export function getSubscriptionByStripeSubscriptionId(subscriptionId) {
  */
 export function updateSubscription(id, updates) {
     const now = Date.now();
-    statements.updateSubscription.run(updates.stripe_subscription_id !== undefined ? updates.stripe_subscription_id : null, updates.tier || null, updates.status || null, updates.trial_start !== undefined ? updates.trial_start : null, updates.trial_end !== undefined ? updates.trial_end : null, updates.current_period_start !== undefined ? updates.current_period_start : null, updates.current_period_end !== undefined ? updates.current_period_end : null, updates.cancel_at_period_end !== undefined ? updates.cancel_at_period_end : null, now, id);
+    statements.updateSubscription.run(updates.stripe_customer_id || null, updates.stripe_subscription_id !== undefined ? updates.stripe_subscription_id : null, updates.tier || null, updates.status || null, updates.trial_start !== undefined ? updates.trial_start : null, updates.trial_end !== undefined ? updates.trial_end : null, updates.current_period_start !== undefined ? updates.current_period_start : null, updates.current_period_end !== undefined ? updates.current_period_end : null, updates.cancel_at_period_end !== undefined ? updates.cancel_at_period_end : null, now, id);
     const subscription = getSubscriptionById(id);
     if (!subscription) {
         throw new Error('Subscription not found after update');

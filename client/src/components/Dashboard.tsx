@@ -6,6 +6,7 @@ import { CategoryChart } from "./CategoryChart"
 import { SpikeAlert } from "./SpikeAlert"
 import { Settings } from "./Settings"
 import { Activity, BarChart3, Folder, Zap, Wifi, WifiOff, Settings as SettingsIcon, Loader2, ChevronDown } from "lucide-react"
+import { UserMenu } from "./auth/UserMenu"
 import { DottedSurface } from "./ui/dotted-surface"
 import type { AppConfig } from "../hooks/useConfig"
 import type { ErrorStatistics } from "../hooks/useSocket"
@@ -16,7 +17,9 @@ interface DashboardProps {
   stats: ErrorStatistics | null
   aiStreaming?: Record<string, string>
   spikes: unknown[]
-  onClearSpikes: () => void
+  onClearSpike: (index: number) => void
+  onClearErrors: () => Promise<void>
+  onHideError: (id: number) => void
   requestStats: (timeWindow: number) => void
   config: AppConfig
   onUpdateConfig: (updates: Partial<AppConfig>) => void
@@ -36,7 +39,9 @@ export function Dashboard({
   stats,
   aiStreaming,
   spikes,
-  onClearSpikes,
+  onClearSpike,
+  onClearErrors,
+  onHideError,
   requestStats,
   config,
   onUpdateConfig,
@@ -136,11 +141,13 @@ export function Dashboard({
 
               <button
                 onClick={() => setIsSettingsOpen(true)}
-                className="p-3 rounded-lg bg-muted/70 border-2 border-primary/40 hover:border-primary/70 hover:bg-muted/90 transition-all"
+                className="p-3 rounded-lg bg-muted/70 border-2 border-primary/40 hover:border-primary/70 hover:bg-muted/90 transition-all transition-colors"
                 aria-label="Open settings"
               >
                 <SettingsIcon className="w-5 h-5 text-primary" />
               </button>
+
+              <UserMenu />
             </div>
           </div>
         </div>
@@ -172,13 +179,13 @@ export function Dashboard({
         {/* Spike Alerts */}
         {spikes.length > 0 && (
           <div className="mb-6">
-            <SpikeAlert spikes={spikes as never[]} onClear={onClearSpikes} />
+            <SpikeAlert spikes={spikes as never[]} onClear={onClearSpike} />
           </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 h-[calc(100vh-300px)] min-h-[500px]">
-            <ErrorFeed errors={errors as never[]} aiStreaming={aiStreaming} />
+            <ErrorFeed errors={errors as never[]} aiStreaming={aiStreaming} onClearErrors={onClearErrors} onHideError={onHideError} />
           </div>
           <div className="h-[calc(100vh-300px)] min-h-[500px]">
             <CategoryChart stats={stats} isLoading={isLoadingStats} />

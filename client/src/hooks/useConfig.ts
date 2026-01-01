@@ -7,7 +7,7 @@ export interface AppConfig {
 
 const DEFAULT_CONFIG: AppConfig = {
   serverUrl: 'localhost',
-  port: 7878
+  port: 3000
 };
 
 const CONFIG_STORAGE_KEY = 'logintelligence_config';

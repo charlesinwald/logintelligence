@@ -60,12 +60,12 @@ export const statements = {
     // Error counts by category (time windowed)
     getCategoryCounts: db.prepare(`
     SELECT
-      ai_category as category,
+      COALESCE(ai_category, 'Uncategorized') as category,
       COUNT(*) as count,
       MAX(timestamp) as last_occurrence
     FROM errors
     WHERE timestamp >= ?
-    GROUP BY ai_category
+    GROUP BY COALESCE(ai_category, 'Uncategorized')
     ORDER BY count DESC
   `),
     // Insert or update error pattern
@@ -110,6 +110,18 @@ export const statements = {
     FROM error_stats
     WHERE time_bucket >= ?
     GROUP BY source, category
+  `),
+    // Clear all errors
+    clearAllErrors: db.prepare(`
+    DELETE FROM errors
+  `),
+    // Clear all error stats
+    clearAllErrorStats: db.prepare(`
+    DELETE FROM error_stats
+  `),
+    // Clear all error patterns
+    clearAllErrorPatterns: db.prepare(`
+    DELETE FROM error_patterns
   `)
 };
 // Utility functions
@@ -168,6 +180,14 @@ export function getLogSourcesByUserId(userId) {
 export function getLogSourceCount(userId) {
     const result = logSourceStatements.getLogSourceCount.get(userId);
     return result.count;
+}
+/**
+ * Clear all errors from the database
+ */
+export function clearAllErrors() {
+    statements.clearAllErrors.run();
+    statements.clearAllErrorStats.run();
+    statements.clearAllErrorPatterns.run();
 }
 export default db;
 //# sourceMappingURL=index.js.map

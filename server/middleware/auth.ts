@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../utils/jwt.js';
 import { verifyApiKey, updateApiKeyLastUsed } from '../models/ApiKey.js';
 import { getUserById } from '../models/User.js';
-import { getSubscriptionByUserId } from '../models/Subscription.js';
+import { getSubscriptionByUserId, createSubscription } from '../models/Subscription.js';
 import type { User } from '../models/User.js';
 import type { Subscription } from '../models/Subscription.js';
 
@@ -92,10 +92,18 @@ export function authenticateUser(
     }
 
     // Load subscription
-    const subscription = getSubscriptionByUserId(user.id);
+    let subscription = getSubscriptionByUserId(user.id);
     if (!subscription) {
-      res.status(500).json({ error: 'Subscription not found' });
-      return;
+      console.warn(`[auth middleware] Subscription not found for user ID: ${user.id}. Creating default free tier subscription in DB.`);
+      // Create a real subscription in the database for users who don't have one
+      // This handles migration for existing users created before subscriptions were mandatory
+      subscription = createSubscription({
+        user_id: user.id,
+        stripe_customer_id: `cus_local_${user.id}_${Date.now()}`, // Placeholder for local/legacy users
+        tier: 'free',
+        status: 'active'
+      });
+      console.log(`[auth middleware] Created subscription ${subscription.id} for user ${user.id}`);
     }
 
     // Attach user data to request
