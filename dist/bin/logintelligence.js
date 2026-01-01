@@ -3,7 +3,7 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
-import { isConfigured, getApiKey } from '../lib/config.js';
+import { isConfigured, getApiKey, getLLMProvider, getOllamaBaseURL, getOllamaModel } from '../lib/config.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..', '..');
@@ -35,7 +35,7 @@ Usage: logintelligence [command]
 
 Commands:
   (none)           Start the dashboard
-  setup            Configure Gemini API key
+  setup            Configure LLM provider (Gemini or Ollama)
   simulate         Run error simulation for demo
   ingest           Ingest errors from stdin/stderr stream
   version, -v      Show version number
@@ -43,7 +43,7 @@ Commands:
 
 Examples:
   logintelligence              # Start the dashboard
-  logintelligence setup        # Configure API key
+  logintelligence setup        # Configure LLM provider
   logintelligence simulate     # Run demo simulation
   your-app 2>&1 | logintelligence ingest --source my-app
 
@@ -80,7 +80,7 @@ https://github.com/charlesinwald/logintelligence
         console.log('║   ⚠️  LogIntelligence Dashboard Not Configured         ║');
         console.log('║                                                            ║');
         console.log('╚════════════════════════════════════════════════════════════╝\n');
-        console.log('You need to configure your Gemini API key first.\n');
+        console.log('You need to configure your LLM provider first.\n');
         console.log('Run: logintelligence setup\n');
         process.exit(1);
     }
@@ -91,7 +91,15 @@ https://github.com/charlesinwald/logintelligence
     console.log('║                                                            ║');
     console.log('╚════════════════════════════════════════════════════════════╝\n');
     // Set environment variables from config
-    process.env.GEMINI_API_KEY = getApiKey() || '';
+    const llmProvider = getLLMProvider();
+    process.env.LLM_PROVIDER = llmProvider;
+    if (llmProvider === 'gemini') {
+        process.env.GEMINI_API_KEY = getApiKey() || '';
+    }
+    else if (llmProvider === 'ollama') {
+        process.env.OLLAMA_BASE_URL = getOllamaBaseURL();
+        process.env.OLLAMA_MODEL = getOllamaModel();
+    }
     process.env.NODE_ENV = process.env.NODE_ENV || 'production';
     process.env.PORT = process.env.PORT || '7878';
     // Ensure database directory exists
@@ -113,15 +121,24 @@ https://github.com/charlesinwald/logintelligence
     console.log(`Server starting on: http://localhost:${PORT}`);
     console.log(`Dashboard will open at: http://localhost:${PORT}\n`);
     // Start the server
+    const serverEnv = {
+        ...process.env,
+        LLM_PROVIDER: llmProvider,
+        NODE_ENV: 'production',
+        PORT: PORT
+    };
+    // Add provider-specific environment variables
+    if (llmProvider === 'gemini') {
+        serverEnv.GEMINI_API_KEY = getApiKey() || '';
+    }
+    else if (llmProvider === 'ollama') {
+        serverEnv.OLLAMA_BASE_URL = getOllamaBaseURL();
+        serverEnv.OLLAMA_MODEL = getOllamaModel();
+    }
     const server = spawn('node', [join(rootDir, 'dist/server/index.js')], {
         stdio: 'inherit',
         cwd: rootDir,
-        env: {
-            ...process.env,
-            GEMINI_API_KEY: getApiKey() || '',
-            NODE_ENV: 'production',
-            PORT: PORT
-        }
+        env: serverEnv
     });
     // Wait a bit for server to start, then open browser
     setTimeout(() => {

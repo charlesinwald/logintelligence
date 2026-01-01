@@ -13,10 +13,6 @@ const router = express.Router();
 const stripe = process.env.STRIPE_SECRET_KEY
     ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-12-15.clover' })
     : null;
-// Initialize Google OAuth client
-const googleClient = process.env.GOOGLE_CLIENT_ID
-    ? new OAuth2Client()
-    : null;
 // Validation schemas
 const googleAuthSchema = z.object({
     credential: z.string().min(1, 'Google credential is required')
