@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { AlertCircle, Activity, Clock, User, Hash, ChevronDown, X, ChevronUp, Copy, Check, Trash2 } from "lucide-react"
+import { AlertCircle, Activity, Clock, User, Hash, ChevronDown, X, ChevronUp, Copy, Check, Trash2, Search } from "lucide-react"
 
 interface ErrorData {
   id: string
@@ -31,12 +31,33 @@ interface ErrorFeedProps {
 export function ErrorFeed({ errors, aiStreaming = {}, onClearErrors, onHideError }: ErrorFeedProps) {
   const [expandedError, setExpandedError] = useState<string | null>(null)
   const [filter, setFilter] = useState("all")
+  const [searchQuery, setSearchQuery] = useState("")
   const [showClearConfirmation, setShowClearConfirmation] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
 
   const filteredErrors = errors.filter((err) => {
-    if (filter === "all") return true
-    return (err.ai_severity || err.severity) === filter
+    // Severity filter
+    if (filter !== "all" && (err.ai_severity || err.severity) !== filter) {
+      return false
+    }
+
+    // Search filter - search across message, service, category, and severity
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      const message = (err.message || "").toLowerCase()
+      const service = (err.source || "").toLowerCase()
+      const category = (err.ai_category || err.category || "").toLowerCase()
+      const severity = (err.ai_severity || err.severity || "").toLowerCase()
+
+      return (
+        message.includes(query) ||
+        service.includes(query) ||
+        category.includes(query) ||
+        severity.includes(query)
+      )
+    }
+
+    return true
   })
 
   const handleClearErrors = async () => {
@@ -56,17 +77,57 @@ export function ErrorFeed({ errors, aiStreaming = {}, onClearErrors, onHideError
 
   return (
     <div className="glass-card h-full flex flex-col rounded-xl overflow-hidden neon-border" role="region" aria-label="Error feed">
-      <div className="flex items-center justify-between p-6 border-b border-border/50 bg-gradient-to-r from-primary/10 to-secondary/10">
-        <div className="flex items-center gap-3">
-          <div className="p-3 rounded-lg bg-primary/30 glow-primary">
-            <Activity className="w-6 h-6 text-blue-500" />
+      <div className="p-6 border-b border-border/50 bg-gradient-to-r from-primary/10 to-secondary/10 space-y-4">
+        {/* Header Row */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-lg bg-primary/30 glow-primary">
+              <Activity className="w-6 h-6 text-blue-500" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold gradient-text">Live Error Feed</h2>
+              <p className="text-sm text-muted-foreground">Real-time monitoring</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-2xl font-bold gradient-text">Live Error Feed</h2>
-            <p className="text-sm text-muted-foreground">Real-time monitoring</p>
+          <div className="flex items-center gap-3">
+            {onClearErrors && errors.length > 0 && (
+              <button
+                onClick={() => setShowClearConfirmation(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-destructive/20 border-2 border-destructive/40 rounded-lg hover:bg-destructive/30 hover:border-destructive/60 transition-all transition-colors focus:outline-none focus:ring-2 focus:ring-destructive/60"
+                aria-label="Clear all errors"
+              >
+                <Trash2 className="w-5 h-5 text-destructive" />
+                <span className="text-base font-semibold text-destructive">Clear All</span>
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Search and Filter Row */}
         <div className="flex items-center gap-3">
+          {/* Search Bar */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 text-white pointer-events-none border-2 border-black rounded-full p-1" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search errors by message, service, category, or severity..."
+              className="w-full bg-muted/30 border-2 border-primary/40 rounded-lg pl-11 pr-10 py-2.5 text-base backdrop-blur-sm hover:border-primary/70 hover:bg-muted/90 transition-all focus:outline-none focus:ring-2 focus:ring-primary/60 placeholder:text-muted-foreground/50"
+              aria-label="Search errors"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-muted/50 transition-colors"
+                aria-label="Clear search"
+              >
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+            )}
+          </div>
+
+          {/* Severity Filter */}
           <div className="relative">
             <select
               value={filter}
@@ -84,16 +145,6 @@ export function ErrorFeed({ errors, aiStreaming = {}, onClearErrors, onHideError
               <ChevronDown className="w-5 h-5 text-primary" />
             </div>
           </div>
-          {onClearErrors && errors.length > 0 && (
-            <button
-              onClick={() => setShowClearConfirmation(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-destructive/20 border-2 border-destructive/40 rounded-lg hover:bg-destructive/30 hover:border-destructive/60 transition-all transition-colors focus:outline-none focus:ring-2 focus:ring-destructive/60"
-              aria-label="Clear all errors"
-            >
-              <Trash2 className="w-5 h-5 text-destructive" />
-              <span className="text-base font-semibold text-destructive">Clear All</span>
-            </button>
-          )}
         </div>
       </div>
 

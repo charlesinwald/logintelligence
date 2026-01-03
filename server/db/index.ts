@@ -356,5 +356,17 @@ export function clearAllErrors(): void {
   statements.clearAllErrorPatterns.run();
 }
 
+/**
+ * Delete errors older than specified timestamp
+ * Useful for data retention cleanup
+ */
+export function deleteErrorsOlderThan(timestamp: number): number {
+  const result = db.prepare(`
+    DELETE FROM errors
+    WHERE timestamp < ?
+  `).run(timestamp);
+  return result.changes;
+}
+
 export default db;
 

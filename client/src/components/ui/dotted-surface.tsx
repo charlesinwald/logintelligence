@@ -4,15 +4,19 @@ import * as THREE from 'three';
 
 type DottedSurfaceProps = Omit<React.ComponentProps<'div'>, 'ref'> & {
 	theme?: 'light' | 'dark';
+	animationSpeed?: number;
+	waveAmplitude?: number;
+	waveFrequency?: number;
+	variant?: 'default' | 'premium';
 };
 
-export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
+export function DottedSurface({ className, animationSpeed = 0.1, waveAmplitude = 50, waveFrequency = 0.3, variant = 'default', ...props }: DottedSurfaceProps) {
 	// Detect theme from document class or default to light
 	const theme = props.theme || document.documentElement.classList.contains('dark') ? 'dark' : 'light';
 
 	const containerRef = useRef<HTMLDivElement>(null);
 	const sceneRef = useRef<{
-		scene: THREE.Scene;	
+		scene: THREE.Scene;
 		camera: THREE.PerspectiveCamera;
 		renderer: THREE.WebGLRenderer;
 		particles: THREE.Points[];
@@ -106,10 +110,25 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
 				for (let iy = 0; iy < AMOUNTY; iy++) {
 					const index = i * 3;
 
-					// Animate Y position with sine waves
-					positions[index + 1] =
-						Math.sin((ix + count) * 0.3) * 50 +
-						Math.sin((iy + count) * 0.5) * 50;
+					if (variant === 'premium') {
+						// Premium variant: Circular wave pattern with rotation
+						const centerX = AMOUNTX / 2;
+						const centerY = AMOUNTY / 2;
+						const dx = ix - centerX;
+						const dy = iy - centerY;
+						const distance = Math.sqrt(dx * dx + dy * dy);
+						const angle = Math.atan2(dy, dx);
+
+						positions[index + 1] =
+							Math.sin(distance * waveFrequency - count * 1.5) * waveAmplitude * 1.2 +
+							Math.cos(angle * 3 + count * 0.8) * waveAmplitude * 0.6 +
+							Math.sin(count * 0.5) * waveAmplitude * 0.3;
+					} else {
+						// Default variant: Original sine wave pattern
+						positions[index + 1] =
+							Math.sin((ix + count) * waveFrequency) * waveAmplitude +
+							Math.sin((iy + count) * (waveFrequency + 0.2)) * waveAmplitude;
+					}
 
 					i++;
 				}
@@ -127,7 +146,7 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
 			}
 
 			renderer.render(scene, camera);
-			count += 0.1;
+			count += animationSpeed;
 		};
 
 		// Handle window resize
@@ -180,7 +199,7 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
 				}
 			}
 		};
-	}, [theme]);
+	}, [theme, animationSpeed, waveAmplitude, waveFrequency, variant]);
 
 	return (
 		<div

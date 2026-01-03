@@ -88,8 +88,28 @@ export function UpgradePage() {
 
   if (isPro) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <DottedSurface theme="dark" />
+      <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+        <style>{scrollbarStyles}</style>
+        <DottedSurface
+          theme="dark"
+          variant="premium"
+          animationSpeed={0.03}
+          waveAmplitude={70}
+          waveFrequency={0.15}
+        />
+
+        {/* Premium gradient overlay - same as main upgrade page */}
+        <div className="fixed inset-0 pointer-events-none">
+          {/* Center radial gradient - warning glow */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-[radial-gradient(ellipse_at_center,oklch(0.75_0.2_85/0.18),transparent_70%)]" />
+
+          {/* Left accent */}
+          <div className="absolute top-1/3 left-0 w-[500px] h-[500px] bg-[radial-gradient(ellipse_at_center,oklch(0.7_0.24_328/0.12),transparent_60%)]" />
+
+          {/* Right accent */}
+          <div className="absolute top-1/2 right-0 w-[450px] h-[450px] bg-[radial-gradient(ellipse_at_center,oklch(0.65_0.25_264/0.1),transparent_60%)]" />
+        </div>
+
         <div className="max-w-2xl w-full relative z-10">
           <div className="glass-card rounded-3xl border-2 border-warning/30 p-12">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,oklch(0.75_0.2_85/0.1),transparent_50%)] rounded-3xl" />
@@ -124,8 +144,43 @@ export function UpgradePage() {
   }
 
   return (
-    <div className="min-h-screen">
-      <DottedSurface theme="dark" />
+    <div className="min-h-screen relative overflow-hidden">
+      <style>{scrollbarStyles}</style>
+      <DottedSurface
+        theme="dark"
+        variant="premium"
+        animationSpeed={0.03}
+        waveAmplitude={50}
+        waveFrequency={0.10}
+      />
+
+      {/* Premium gradient overlay - significantly different from dashboard */}
+      <div className="fixed inset-0 pointer-events-none">
+        {/* Top radial gradient - purple/warning glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1400px] h-[800px] bg-[radial-gradient(ellipse_at_center,oklch(0.75_0.2_85/0.15),transparent_70%)]" />
+
+        {/* Left side accent */}
+        <div className="absolute top-1/4 left-0 w-[600px] h-[600px] bg-[radial-gradient(ellipse_at_center,oklch(0.7_0.24_328/0.12),transparent_65%)]" />
+
+        {/* Right side accent */}
+        <div className="absolute top-1/3 right-0 w-[500px] h-[500px] bg-[radial-gradient(ellipse_at_center,oklch(0.65_0.25_264/0.1),transparent_60%)]" />
+
+        {/* Bottom glow */}
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[1200px] h-[400px] bg-[radial-gradient(ellipse_at_center,oklch(0.75_0.2_85/0.08),transparent_70%)]" />
+
+        {/* Subtle grid overlay for depth */}
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `
+              linear-gradient(oklch(0.75 0.2 85 / 0.3) 1px, transparent 1px),
+              linear-gradient(90deg, oklch(0.75 0.2 85 / 0.3) 1px, transparent 1px)
+            `,
+            backgroundSize: '100px 100px'
+          }}
+        />
+      </div>
+
       <div className="container mx-auto px-4 py-12 max-w-7xl relative z-10">
         {/* Header */}
         <div className="mb-16">
@@ -271,7 +326,7 @@ export function UpgradePage() {
                     </div>
                   </div>
                   <div>
-                    <div className="text-5xl font-bold gradient-text mb-2">$29</div>
+                    <div className="text-5xl font-bold gradient-text mb-2">$4.99</div>
                     <p className="text-muted-foreground">per month</p>
                   </div>
                   <p className="text-muted leading-relaxed">
@@ -501,4 +556,38 @@ function UpgradeTitle() {
     </h1>
   )
 }
+
+// Add dark modern scrollbar styles
+const scrollbarStyles = `
+  /* Webkit browsers (Chrome, Safari, Edge) */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: oklch(0.15 0 0);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.3 0 0);
+    border-radius: 4px;
+    transition: background 0.2s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.4 0 0);
+  }
+
+  ::-webkit-scrollbar-thumb:active {
+    background: oklch(0.45 0 0);
+  }
+
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.3 0 0) oklch(0.15 0 0);
+  }
+`
 

@@ -12,19 +12,19 @@
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  --secondary: oklch(0.92 0.03 264);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+  --muted: oklch(0.60 0.053 258);
+  --muted-foreground: oklch(0.69 0.050 286);
+  --accent: oklch(0.93 0.03 180);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.98 0 0);
   --warning: oklch(0.75 0.2 85);
   --success: oklch(0.7 0.2 150);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: oklch(0.88 0.02 264);
+  --input: oklch(0.9 0.02 264);
+  --ring: oklch(0.65 0.25 264);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -38,10 +38,10 @@
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent: oklch(0.94 0.02 264);
   --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-border: oklch(0.88 0.02 264);
+  --sidebar-ring: oklch(0.65 0.25 264);
 }
 
 .dark {
@@ -55,14 +55,14 @@
   --primary-foreground: oklch(0.98 0 0);
   --secondary: oklch(0.7 0.24 328);
   --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.25 0 0);
-  --muted-foreground: oklch(0.75 0 0);
+  --muted: oklch(0.17 0.04 264);
+  --muted-foreground: oklch(0.72 0.08 264);
   --accent: oklch(0.75 0.22 180);
   --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.6 0.25 25);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(1 0 0 / 15%);
-  --input: oklch(1 0 0 / 20%);
+  --border: oklch(0.3 0.08 264 / 35%);
+  --input: oklch(0.28 0.06 264 / 45%);
   --ring: oklch(0.65 0.25 264);
   --chart-1: oklch(0.65 0.25 264);
   --chart-2: oklch(0.7 0.24 328);
@@ -73,9 +73,9 @@
   --sidebar-foreground: oklch(0.98 0 0);
   --sidebar-primary: oklch(0.65 0.25 264);
   --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.25 0 0);
+  --sidebar-accent: oklch(0.17 0.04 264);
   --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(1 0 0 / 15%);
+  --sidebar-border: oklch(0.3 0.08 264 / 35%);
   --sidebar-ring: oklch(0.65 0.25 264);
   --glow-primary: 0 0 20px oklch(0.65 0.25 264 / 0.5);
 }
@@ -142,7 +142,7 @@
   /* Custom scrollbar styles */
   * {
     scrollbar-width: thin;
-    scrollbar-color: oklch(0.708 0 0 / 0.5) oklch(0.97 0 0 / 0.3);
+    scrollbar-color: oklch(0.65 0.08 264 / 0.5) oklch(0.94 0.02 264 / 0.4);
   }
 
   /* WebKit scrollbar styles for Chromium browsers */
@@ -152,12 +152,12 @@
   }
 
   *::-webkit-scrollbar-track {
-    background: oklch(0.97 0 0 / 0.3);
+    background: oklch(0.94 0.02 264 / 0.4);
     border-radius: 5px;
   }
 
   *::-webkit-scrollbar-thumb {
-    background: oklch(0.708 0 0 / 0.5);
+    background: oklch(0.65 0.08 264 / 0.5);
     border-radius: 5px;
     border: 2px solid transparent;
     background-clip: padding-box;
@@ -177,15 +177,15 @@
 
   /* Dark mode scrollbar styles */
   .dark * {
-    scrollbar-color: oklch(0.556 0 0 / 0.6) oklch(0.269 0 0 / 0.4);
+    scrollbar-color: oklch(0.45 0.08 264 / 0.7) oklch(0.17 0.04 264 / 0.5);
   }
 
   .dark *::-webkit-scrollbar-track {
-    background: oklch(0.269 0 0 / 0.4);
+    background: oklch(0.17 0.04 264 / 0.5);
   }
 
   .dark *::-webkit-scrollbar-thumb {
-    background: oklch(0.556 0 0 / 0.6);
+    background: oklch(0.45 0.08 264 / 0.7);
   }
 
   .dark *::-webkit-scrollbar-thumb:hover {
@@ -217,9 +217,9 @@
   }
 
   .glass-card {
-    background: oklch(0.16 0.02 264 / 0.8);
-    backdrop-filter: blur(16px);
-    border: 1px solid oklch(0.3 0.1 264 / 0.6);
+    background: oklch(0.18 0.03 264 / 0.75);
+    backdrop-filter: blur(20px) saturate(1.2);
+    border: 1px solid oklch(0.35 0.12 264 / 0.5);
   }
 
   .neon-border {
