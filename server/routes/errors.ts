@@ -29,6 +29,7 @@ const errorSchema = z.object({
   timestamp: z.number().optional(),
   source: z.string().min(1, 'Source/service name is required'),
   severity: z.enum(['critical', 'high', 'medium', 'low', 'unknown']).optional(),
+  category: z.string().optional(), // User-provided category
   environment: z.string().optional(),
   user_id: z.string().optional(),
   request_id: z.string().optional(),

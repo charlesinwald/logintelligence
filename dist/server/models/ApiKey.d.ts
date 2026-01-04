@@ -15,8 +15,20 @@ export interface ApiKeyWithPlainText extends ApiKey {
     plain_key: string;
 }
 /**
+ * Check if user can create more API keys based on subscription tier
+ * Free tier: Max 1 API key
+ * Pro tier: Unlimited
+ */
+export declare function canCreateApiKey(userId: number): {
+    allowed: boolean;
+    reason?: string;
+    currentCount: number;
+    limit: number;
+};
+/**
  * Create a new API key
  * Returns the plain text key (only time it's shown)
+ * Throws error if user has reached their API key limit
  */
 export declare function createApiKey(data: CreateApiKeyData): ApiKeyWithPlainText;
 /**

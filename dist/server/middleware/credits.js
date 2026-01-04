@@ -15,12 +15,15 @@ export function requireCredits(creditsNeeded = 1) {
             res.status(402).json({
                 error: 'Insufficient credits',
                 message: summary.is_pro
-                    ? 'You have used all your daily credits. Please try again tomorrow.'
-                    : 'You have used all your free daily credits. Upgrade to Pro for unlimited AI analysis.',
+                    ? 'You have used all your monthly credits. Credits reset at the beginning of next month.'
+                    : `You have used all your free monthly credits (${summary.monthly_limit}/month). Upgrade to Pro for unlimited AI analysis.`,
                 credits: {
                     remaining: summary.remaining,
-                    daily_limit: summary.daily_limit,
+                    used_this_month: summary.used_this_month,
+                    monthly_limit: summary.monthly_limit,
                     resets_at: summary.resets_at,
+                    // Legacy fields for backward compatibility
+                    daily_limit: summary.daily_limit,
                 },
                 upgrade_url: '/upgrade',
             });

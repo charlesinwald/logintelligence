@@ -5,7 +5,12 @@ import { analyzeErrorStreaming } from '../services/ai.js';
 import { trackErrorPattern, detectSpikes, findSimilarErrors, getErrorStatistics } from '../services/patterns.js';
 import { verifyApiKey, updateApiKeyLastUsed } from '../models/ApiKey.js';
 import { hasCredits, deductCredits } from '../models/Credits.js';
+import { getSubscriptionByUserId, isProTier } from '../models/Subscription.js';
+import { incrementErrorCount, getErrorLimit, getMonthlyErrorCount } from '../models/UsageTracking.js';
+import { rateLimit } from '../middleware/rateLimit.js';
 const router = express.Router();
+// Apply rate limiting to all error routes
+router.use(rateLimit());
 // Validation schema
 const errorSchema = z.object({
     message: z.string().min(1, 'Message is required'),
@@ -13,10 +18,12 @@ const errorSchema = z.object({
     timestamp: z.number().optional(),
     source: z.string().min(1, 'Source/service name is required'),
     severity: z.enum(['critical', 'high', 'medium', 'low', 'unknown']).optional(),
+    category: z.string().optional(), // User-provided category
     environment: z.string().optional(),
     user_id: z.string().optional(),
     request_id: z.string().optional(),
-    metadata: z.record(z.any()).optional()
+    metadata: z.record(z.any()).optional(),
+    analyze: z.boolean().optional() // Explicit flag to request AI analysis (for free tier)
 });
 const batchErrorSchema = z.object({
     errors: z.array(errorSchema).min(1).max(100) // Max 100 errors per batch
@@ -99,26 +106,89 @@ router.post('/', async (req, res, next) => {
             errorSchema.parse(req.body);
         }
         const results = [];
+        // Check error limits before processing (only for authenticated users)
+        if (userId) {
+            const errorLimit = getErrorLimit(userId);
+            const currentCount = getMonthlyErrorCount(userId);
+            const errorsCount = errors.length;
+            const wouldExceedLimit = currentCount + errorsCount > errorLimit;
+            if (wouldExceedLimit) {
+                const subscription = getSubscriptionByUserId(userId);
+                const isPro = subscription ? isProTier(subscription) : false;
+                return res.status(429).json({
+                    success: false,
+                    error: 'Monthly error limit exceeded',
+                    message: isPro
+                        ? `This batch would exceed your monthly error limit. Please contact support.`
+                        : `This batch would exceed your monthly limit of ${errorLimit} errors (current: ${currentCount}, batch: ${errorsCount}). Upgrade to Pro for unlimited error tracking.`,
+                    limit: errorLimit,
+                    current_count: currentCount,
+                    batch_size: errorsCount,
+                    remaining: Math.max(0, errorLimit - currentCount),
+                    upgrade_url: '/upgrade',
+                });
+            }
+        }
         for (const errorData of errors) {
             // Set timestamp if not provided
             if (!errorData.timestamp) {
                 errorData.timestamp = Date.now();
             }
-            // Insert error into database
-            const errorId = insertError(errorData);
+            // Insert error into database (with owner_id for tier limit tracking)
+            const errorId = insertError(errorData, userId);
+            // Track error count for authenticated users
+            if (userId) {
+                incrementErrorCount(userId);
+            }
+            // Determine if AI analysis should be performed
+            let shouldAnalyze = false;
+            let aiStatus = 'skipped';
+            if (userId) {
+                // Check subscription tier
+                const subscription = getSubscriptionByUserId(userId);
+                const isPro = subscription ? isProTier(subscription) : false;
+                if (isPro) {
+                    // Pro tier: Auto-analyze if user has credits
+                    shouldAnalyze = hasCredits(userId);
+                    aiStatus = shouldAnalyze ? 'processing' : 'skipped';
+                }
+                else {
+                    // Free tier: Only analyze if explicitly requested via `analyze: true` flag
+                    const explicitAnalyze = errorData.analyze === true;
+                    if (explicitAnalyze && hasCredits(userId)) {
+                        shouldAnalyze = true;
+                        aiStatus = 'processing';
+                    }
+                    else {
+                        aiStatus = 'not_available';
+                    }
+                }
+            }
+            else {
+                // Legacy support: No userId, allow analysis (for backward compatibility)
+                shouldAnalyze = true;
+                aiStatus = 'processing';
+            }
             // Emit raw error to connected clients immediately
             io.emit('error:new', {
                 id: errorId,
                 ...errorData,
-                ai_status: userId && hasCredits(userId) ? 'processing' : 'skipped'
+                ai_status: aiStatus
             });
             results.push({ id: errorId });
-            // Analyze with AI asynchronously (don't block response)
-            // Only analyze if user has credits or no userId (legacy support)
-            if (!userId || hasCredits(userId)) {
+            // Analyze with AI asynchronously if shouldAnalyze is true
+            if (shouldAnalyze) {
                 analyzeErrorWithStreaming(errorId, errorData, io, userId).catch((err) => {
                     console.error(`Failed to analyze error ${errorId}:`, err);
                     io.emit('error:ai_failed', { errorId, error: err.message });
+                });
+            }
+            else if (userId && aiStatus === 'not_available') {
+                // Emit message for free tier users that analysis is not automatic
+                io.emit('error:ai_failed', {
+                    errorId,
+                    error: 'AI analysis not automatic',
+                    message: 'Free tier users must explicitly request AI analysis by including "analyze": true in the error payload. Upgrade to Pro for automatic AI analysis.'
                 });
             }
         }
@@ -221,6 +291,75 @@ router.get('/:id', (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to fetch error'
+        });
+    }
+});
+/**
+ * POST /api/errors/:id/analyze
+ * Manually request AI analysis for an existing error (useful for free tier users)
+ */
+router.post('/:id/analyze', async (req, res) => {
+    const io = req.app.get('io');
+    try {
+        const errorId = parseInt(req.params.id);
+        const error = getRecentErrors(1000).find(e => e.id === errorId);
+        if (!error) {
+            return res.status(404).json({
+                success: false,
+                error: 'Error not found'
+            });
+        }
+        // Check for API key authentication
+        let userId;
+        const apiKey = req.headers['x-api-key'];
+        if (apiKey) {
+            const apiKeyRecord = verifyApiKey(apiKey);
+            if (apiKeyRecord) {
+                userId = apiKeyRecord.user_id;
+                updateApiKeyLastUsed(apiKeyRecord.id);
+            }
+        }
+        // Check if user has credits
+        if (userId && !hasCredits(userId)) {
+            const subscription = getSubscriptionByUserId(userId);
+            const isPro = subscription ? isProTier(subscription) : false;
+            return res.status(402).json({
+                success: false,
+                error: 'Insufficient credits',
+                message: isPro
+                    ? 'You have used all your monthly credits. Credits reset at the beginning of next month.'
+                    : `You have used all your free monthly credits (100/month). Upgrade to Pro for unlimited AI analysis.`
+            });
+        }
+        // Perform AI analysis
+        const errorData = {
+            message: error.message,
+            stack_trace: error.stack_trace || null,
+            timestamp: error.timestamp,
+            source: error.source,
+            severity: error.severity || 'unknown',
+            environment: error.environment || null,
+            user_id: error.user_id || null,
+            request_id: error.request_id || null,
+            metadata: error.metadata ? JSON.parse(error.metadata) : null,
+            ai_category: error.ai_category || null
+        };
+        // Start analysis asynchronously
+        analyzeErrorWithStreaming(errorId, errorData, io, userId).catch((err) => {
+            console.error(`Failed to analyze error ${errorId}:`, err);
+            io.emit('error:ai_failed', { errorId, error: err.message });
+        });
+        res.json({
+            success: true,
+            message: 'AI analysis started',
+            errorId
+        });
+    }
+    catch (error) {
+        console.error('Failed to start AI analysis:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to start AI analysis'
         });
     }
 });

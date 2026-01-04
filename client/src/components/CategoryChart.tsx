@@ -60,7 +60,7 @@ export function CategoryChart({ stats, isLoading = false }: CategoryChartProps) 
           </div>
           <div>
             <h2 className="text-2xl font-bold gradient-text">Error Categories</h2>
-            <p className="text-sm text-muted-foreground">Top 10 by frequency</p>
+            <p className="text-sm text-muted-foreground">Top 10 by frequency • AI + Pattern-based</p>
           </div>
         </div>
       </div>

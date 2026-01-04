@@ -350,7 +350,7 @@ function ErrorCard({
                 <X className="w-5 h-5 text-muted-foreground hover:text-primary transition-colors" />
               </button>
             )}
-            {isExpanded && (
+            {/* {isExpanded && (
               <button
                 onClick={(e) => {
                   e.stopPropagation()
@@ -361,7 +361,7 @@ function ErrorCard({
               >
                 <X className="w-5 h-5 text-muted-foreground hover:text-destructive transition-colors" />
               </button>
-            )}
+            )} */}
             <div className="p-2 rounded-lg bg-muted/40 border border-border/50">
               {isExpanded ? (
                 <ChevronUp className="w-5 h-5 text-primary" />

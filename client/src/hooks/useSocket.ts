@@ -10,6 +10,7 @@ export interface ErrorRecord {
   timestamp: number;
   source: string;
   severity?: 'critical' | 'high' | 'medium' | 'low' | 'unknown';
+  category?: string | null; // User-provided category
   environment?: string | null;
   user_id?: string | null;
   request_id?: string | null;
@@ -72,6 +73,87 @@ function normalizeStats(stats: any): ErrorStatistics {
 }
 
 /**
+ * Simple pattern-based category matching (client-side fallback)
+ * Matches error messages and stack traces against common patterns
+ */
+function matchCategoryPattern(message: string, stack?: string | null): string | null {
+  const text = `${message} ${stack || ''}`.toLowerCase();
+
+  // Timeout errors (check before Network to avoid false positives)
+  if (text.includes('request timeout') || text.includes('execution timeout') ||
+      text.includes('operation timed out') || text.includes('timed out') ||
+      text.includes('deadline exceeded') || text.includes('timeout')) {
+    return 'Timeout';
+  }
+
+  // Configuration errors (check before Database to avoid false positives)
+  if (text.includes('environment variable') || text.includes('missing env') ||
+      text.includes('env var') || text.includes('process.env') || text.includes('.env') ||
+      text.includes('dotenv') || text.includes('config') || text.includes('configuration')) {
+    return 'Configuration';
+  }
+
+  // Database errors
+  if (text.includes('database') || text.includes('sql') || text.includes('query') ||
+      text.includes('connection pool') || text.includes('deadlock') || text.includes('postgres') ||
+      text.includes('mysql') || text.includes('mongodb') || text.includes('redis')) {
+    return 'Database';
+  }
+
+  // Authentication errors
+  if (text.includes('auth') || text.includes('token') || text.includes('jwt') ||
+      text.includes('session') || text.includes('login') || text.includes('unauthorized') ||
+      text.includes('forbidden') || text.includes('401') || text.includes('403')) {
+    return 'Authentication';
+  }
+
+  // Network errors
+  if (text.includes('network') || text.includes('econnrefused') ||
+      text.includes('socket') || text.includes('fetch failed') || text.includes('etimedout') ||
+      text.includes('connection refused') || text.includes('unreachable')) {
+    return 'Network';
+  }
+
+  // API errors
+  if (text.includes('404') || text.includes('500') || text.includes('503') ||
+      text.includes('502') || text.includes('api') || text.includes('bad request') ||
+      text.includes('gateway timeout') || text.includes('rate limit')) {
+    return 'API';
+  }
+
+  // Null reference errors
+  if (text.includes('undefined') || text.includes('null') || text.includes('cannot read') ||
+      text.includes('is not defined') || text.includes('is not a function') ||
+      text.includes('typeerror') || text.includes('referenceerror')) {
+    return 'Null Reference';
+  }
+
+  // Validation errors
+  if (text.includes('validation') || text.includes('invalid') || text.includes('schema') ||
+      text.includes('malformed') || text.includes('required')) {
+    return 'Validation';
+  }
+
+  // Memory errors
+  if (text.includes('memory') || text.includes('heap') || text.includes('out of memory') ||
+      text.includes('stack overflow') || text.includes('oom')) {
+    return 'Memory';
+  }
+
+  return null;
+}
+
+/**
+ * Get hybrid category with fallback chain
+ * Priority: AI category > User category > Pattern-based
+ */
+function getHybridCategory(error: ErrorRecord): string | null {
+  return error.ai_category
+    || error.category
+    || matchCategoryPattern(error.message, error.stack_trace);
+}
+
+/**
  * Compute stats from errors array as fallback when server stats are empty
  */
 function computeStatsFromErrors(errors: ErrorRecord[], timeWindowMs: number = 3600000): ErrorStatistics {
@@ -84,11 +166,11 @@ function computeStatsFromErrors(errors: ErrorRecord[], timeWindowMs: number = 36
   // Use all errors if they're all outside the window (likely test data with future timestamps)
   const errorsToUse = errorsInWindow.length > 0 ? errorsInWindow : errors;
   
-  // Group by category
+  // Group by category using hybrid categorization
   const categoryMap = new Map<string | null, { count: number; lastOccurrence: number }>();
-  
+
   errorsToUse.forEach(error => {
-    const category = error.ai_category || null;
+    const category = getHybridCategory(error) || 'Uncategorized';
     const existing = categoryMap.get(category) || { count: 0, lastOccurrence: 0 };
     categoryMap.set(category, {
       count: existing.count + 1,

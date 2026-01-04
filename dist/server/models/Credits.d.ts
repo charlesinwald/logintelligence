@@ -21,7 +21,12 @@ export declare function hasCredits(userId: number, required?: number): boolean;
  */
 export declare function deductCredits(userId: number, amount?: number): boolean;
 /**
- * Get daily credit limit for user based on subscription
+ * Get monthly credit limit for user based on subscription
+ */
+export declare function getMonthlyLimit(userId: number): number;
+/**
+ * Get daily credit limit for user based on subscription (deprecated, kept for backward compatibility)
+ * @deprecated Use getMonthlyLimit instead
  */
 export declare function getDailyLimit(userId: number): number;
 /**
@@ -29,16 +34,19 @@ export declare function getDailyLimit(userId: number): number;
  */
 export interface CreditsSummary {
     remaining: number;
-    used_today: number;
-    daily_limit: number;
+    used_this_month: number;
+    monthly_limit: number;
     is_pro: boolean;
     resets_at: string;
+    used_today?: number;
+    daily_limit?: number;
 }
 export declare function getCreditsSummary(userId: number): CreditsSummary;
 declare const _default: {
     getCredits: typeof getCredits;
     hasCredits: typeof hasCredits;
     deductCredits: typeof deductCredits;
+    getMonthlyLimit: typeof getMonthlyLimit;
     getDailyLimit: typeof getDailyLimit;
     getCreditsSummary: typeof getCreditsSummary;
 };

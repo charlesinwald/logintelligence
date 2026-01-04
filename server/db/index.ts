@@ -18,6 +18,7 @@ export interface ErrorData {
   timestamp: number;
   source: string;
   severity?: 'critical' | 'high' | 'medium' | 'low' | 'unknown';
+  category?: string | null; // User-provided category
   environment?: string | null;
   user_id?: string | null;
   request_id?: string | null;
@@ -95,7 +96,8 @@ const migrations = [
   '003_add_credits_table.sql',
   '004_add_usage_tracking.sql',
   '005_add_rate_limiting.sql',
-  '006_update_credits_to_monthly.sql'
+  '006_update_credits_to_monthly.sql',
+  '007_add_user_category.sql'
 ];
 
 for (const migrationFile of migrations) {
@@ -120,13 +122,13 @@ console.log('✓ Database initialized at:', DB_PATH);
 
 // Prepared statements for common operations
 export const statements = {
-  // Insert new error (includes owner_id for user tracking)
-  insertError: db.prepare<[string, string | null, number, string, string, string | null, string | null, string | null, string | null, number | null]>(
+  // Insert new error (includes owner_id for user tracking and category for user-provided categories)
+  insertError: db.prepare<[string, string | null, number, string, string, string | null, string | null, string | null, string | null, string | null, number | null]>(
     `
     INSERT INTO errors (
       message, stack_trace, timestamp, source, severity,
-      environment, user_id, request_id, metadata, owner_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      category, environment, user_id, request_id, metadata, owner_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `
   ),
 
@@ -260,6 +262,7 @@ export function insertError(errorData: ErrorData, ownerId?: number | null): numb
     errorData.timestamp,
     errorData.source,
     errorData.severity || 'unknown',
+    errorData.category || null,
     errorData.environment || null,
     errorData.user_id || null,
     errorData.request_id || null,
@@ -267,12 +270,13 @@ export function insertError(errorData: ErrorData, ownerId?: number | null): numb
     ownerId || errorData.owner_id || null
   );
 
-  // Update stats bucket (5-minute buckets)
+  // Update stats bucket (5-minute buckets) using hybrid category
   const timeBucket = Math.floor(errorData.timestamp / 1000 / 300);
+  const categoryForStats = errorData.ai_category || errorData.category || 'uncategorized';
   statements.upsertStats.run(
     timeBucket,
     errorData.source,
-    errorData.ai_category || 'uncategorized'
+    categoryForStats
   );
 
   return Number(result.lastInsertRowid);

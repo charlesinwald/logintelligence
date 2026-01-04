@@ -1,5 +1,6 @@
-import { statements, type ErrorData, type ErrorRecord, type StatsRow, type HourlyAverage } from '../db/index.js';
+import { statements, type ErrorData, type ErrorRecord, type StatsRow, type HourlyAverage, getRecentErrors } from '../db/index.js';
 import crypto from 'crypto';
+import { getHybridCategory } from './categoryMatcher.js';
 
 /**
  * Generate a hash for error pattern matching
@@ -196,6 +197,7 @@ export interface ErrorStatistics {
 
 /**
  * Get error statistics for dashboard
+ * Uses hybrid categorization: AI category > User category > Pattern-based
  */
 export function getErrorStatistics(timeWindowMs: number = 3600000): ErrorStatistics {
   const now = Date.now();
@@ -203,24 +205,39 @@ export function getErrorStatistics(timeWindowMs: number = 3600000): ErrorStatist
   const currentBucket = Math.floor(now / 1000 / 300);
   const startBucket = Math.floor(startTime / 1000 / 300);
 
-  // Get time-series data
+  // Get all errors in time window for hybrid categorization
+  const allErrors = getRecentErrors(1000) as ErrorRecord[];
+  const errorsInWindow = allErrors.filter(err => err.timestamp >= startTime);
+
+  // Calculate categories using hybrid approach
+  const categoryMap = new Map<string, { count: number; lastOccurrence: number }>();
+
+  for (const error of errorsInWindow) {
+    const category = getHybridCategory(error) || 'Uncategorized';
+    const existing = categoryMap.get(category) || { count: 0, lastOccurrence: 0 };
+    categoryMap.set(category, {
+      count: existing.count + 1,
+      lastOccurrence: Math.max(existing.lastOccurrence, error.timestamp)
+    });
+  }
+
+  const categories = Array.from(categoryMap.entries()).map(([category, data]) => ({
+    category,
+    count: data.count,
+    lastOccurrence: data.lastOccurrence
+  }));
+
+  // Get time-series data (unchanged)
   const timeSeries = statements.getStatsInRange.all(startBucket, currentBucket) as StatsRow[];
 
-  // Get category breakdown
-  const categories = statements.getCategoryCounts.all(startTime) as Array<{ category: string; count: number; last_occurrence: number }>;
-
   // Calculate overall stats
-  const totalErrors = timeSeries.reduce((sum, stat) => sum + stat.total_errors, 0);
+  const totalErrors = errorsInWindow.length;
   const errorRate = totalErrors / (timeWindowMs / 60000); // Errors per minute
 
   const stats = {
     totalErrors,
     errorRate: Math.round(errorRate * 10) / 10,
-    categories: categories.map(c => ({
-      category: c.category,
-      count: c.count,
-      lastOccurrence: c.last_occurrence
-    })),
+    categories,
     timeSeries: timeSeries.map(stat => ({
       timestamp: stat.time_bucket * 300 * 1000, // Convert back to ms
       count: stat.total_errors,

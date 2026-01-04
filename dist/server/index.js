@@ -12,6 +12,8 @@ import authRoutes from './routes/auth.js';
 import subscriptionRoutes from './routes/subscriptions.js';
 import creditsRoutes from './routes/credits.js';
 import { initializeSocketHandlers } from './socket/handler.js';
+import { cleanupOldRateLimitEntries } from './middleware/rateLimit.js';
+import { runAllCleanup } from './services/dataRetention.js';
 import './db/index.js'; // Initialize database
 dotenv.config();
 console.log(process.env.STRIPE_SECRET_KEY);
@@ -95,6 +97,12 @@ const errorHandler = (err, req, res, next) => {
 app.use(errorHandler);
 // Initialize WebSocket handlers
 initializeSocketHandlers(io);
+// Cleanup old rate limit entries on startup
+cleanupOldRateLimitEntries();
+// Set up periodic cleanup of old rate limit entries (every hour)
+setInterval(() => {
+    cleanupOldRateLimitEntries();
+}, 60 * 60 * 1000); // Every hour
 // Start server
 httpServer.listen(PORT, () => {
     const portStr = String(PORT).padEnd(4);
@@ -110,6 +118,31 @@ httpServer.listen(PORT, () => {
 ║                                                            ║
 ╚════════════════════════════════════════════════════════════╝
   `);
+    // Run data retention cleanup on startup (after server is ready)
+    console.log('[Server] Running initial data retention cleanup...');
+    runAllCleanup();
+    // Set up periodic data retention cleanup (daily at 2 AM)
+    // Calculate milliseconds until next 2 AM
+    function getMillisecondsUntil2AM() {
+        const now = new Date();
+        const next2AM = new Date();
+        next2AM.setHours(2, 0, 0, 0);
+        // If it's already past 2 AM today, schedule for tomorrow
+        if (now.getTime() >= next2AM.getTime()) {
+            next2AM.setDate(next2AM.getDate() + 1);
+        }
+        return next2AM.getTime() - now.getTime();
+    }
+    // Schedule first cleanup
+    const initialDelay = getMillisecondsUntil2AM();
+    setTimeout(() => {
+        runAllCleanup();
+        // Then run daily
+        setInterval(() => {
+            runAllCleanup();
+        }, 24 * 60 * 60 * 1000); // Every 24 hours
+    }, initialDelay);
+    console.log(`[Server] Data retention cleanup scheduled to run daily at 2 AM (first run in ${Math.round(initialDelay / 1000 / 60)} minutes)`);
 });
 // Graceful shutdown
 process.on('SIGTERM', () => {

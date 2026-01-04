@@ -5,11 +5,13 @@ export interface ErrorData {
     timestamp: number;
     source: string;
     severity?: 'critical' | 'high' | 'medium' | 'low' | 'unknown';
+    category?: string | null;
     environment?: string | null;
     user_id?: string | null;
     request_id?: string | null;
     metadata?: Record<string, any> | null;
     ai_category?: string | null;
+    owner_id?: number | null;
 }
 export interface ErrorRecord extends ErrorData {
     id: number;
@@ -61,7 +63,7 @@ export interface HourlyAverage {
 }
 export declare const db: Database.Database;
 export declare const statements: any;
-export declare function insertError(errorData: ErrorData): number;
+export declare function insertError(errorData: ErrorData, ownerId?: number | null): number;
 export declare function updateErrorWithAI(errorId: number, aiData: AIData): Database.RunResult;
 export declare function getRecentErrors(limit?: number): ErrorRecord[];
 export declare function getCategoryStats(timeWindowMs?: number): CategoryStat[];
@@ -85,5 +87,10 @@ export declare function getLogSourceCount(userId: number): number;
  * Clear all errors from the database
  */
 export declare function clearAllErrors(): void;
+/**
+ * Delete errors older than specified timestamp
+ * Useful for data retention cleanup
+ */
+export declare function deleteErrorsOlderThan(timestamp: number): number;
 export default db;
 //# sourceMappingURL=index.d.ts.map

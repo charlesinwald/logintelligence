@@ -47,6 +47,7 @@ export interface ErrorStatistics {
 }
 /**
  * Get error statistics for dashboard
+ * Uses hybrid categorization: AI category > User category > Pattern-based
  */
 export declare function getErrorStatistics(timeWindowMs?: number): ErrorStatistics;
 declare const _default: {
